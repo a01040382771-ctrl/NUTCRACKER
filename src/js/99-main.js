@@ -115,7 +115,7 @@ function frame(now) {
   const dt = Math.min(0.05, lastT ? (now - lastT) / 1000 : 0.016);
   lastT = now;
   FX.uniforms.uTime.value += dt;
-  if (Input.consume('pause') && G.mode !== 'title' && G.mode !== 'clear') Story.togglePause();
+  if (Input.consume('pause') && G.mode !== 'title' && G.mode !== 'clear' && G.mode !== 'loading') { if (G.mode === 'build') Build.exit(); else Story.togglePause(); }
   const steps = DEBUG.timeScale | 0 || 1;
   for (let i = 0; i < steps; i++) {
     if (G.mode !== 'paused') {
@@ -142,6 +142,14 @@ function gameUpdate(dt) {
     }
   }
   if (G.mode === 'play' || G.mode === 'cutscene') G.time += G.mode === 'play' ? dt : 0;
+  if (G.chapter === 2) {
+    Toy.prePhysics(dt);
+    updatePlayer(dt);
+    updateCompanion(dt);
+    Toy.update(dt);
+    Story.tick(dt);
+    return;
+  }
   updatePlayer(dt);
   updateCompanion(dt);
   updateProps(dt);
@@ -187,7 +195,8 @@ async function boot(hot) {
   for (const [m, k] of [[MAT.gold, 1.0], [MAT.gloss, 0.7], [MAT.porcelain, 0.55], [MAT.wood, 0.35], [MAT.satin, 0.45], [MAT.ornament, 1.0], [MAT.starGold, 0.9], [MAT.mirror, 1.0], [MAT.marble, 0.5], [MAT.floor, 0.3], [MAT.gifts, 0.3], [MAT.blocks, 0.4]]) m.envMapIntensity = k;
   FX.add = new Particles(DEVICE.mobile ? 420 : 640, true);
   FX.norm = new Particles(DEVICE.mobile ? 160 : 240, false);
-  W = buildMansion(scene);
+  const root1 = new THREE.Group(); root1.name = 'mansion'; scene.add(root1);
+  W = buildMansion(root1); W.root = root1; World.W1 = W;
   scene.add(FX.add.points, FX.norm.points);
   UI.setLoading(0.65, '클라라와 호두까기 인형을 깨우는 중…');
   await nextFrame();
@@ -212,7 +221,7 @@ async function boot(hot) {
   await new Promise((r) => setTimeout(r, 250));
   Story.toTitle(true);
   window.__nut = {
-    G, player, Cam, Story, Input, UI, comp, K, Tasks, mice, soldiers, flags, Perf, DEBUG, applyMood, setQuality, spawnMouse, killMouse, hitKing, throwSlipper,
+    G, player, Cam, Story, Input, UI, comp, K, Tasks, mice, soldiers, flags, Perf, DEBUG, applyMood, setQuality, spawnMouse, killMouse, hitKing, throwSlipper, Toy, Build, TG, World, Save, Sound,
     get W() { return W; }, get clara() { return clara; }, get nut() { return nut; }, get king() { return king; }, get prince() { return prince; },
     get fairyBig() { return fairyBig; }, get portal() { return portal; }, get magicSnow() { return magicSnow; }, get starSet() { return starSet; }, get renderer() { return renderer; }, get camera() { return camera; }, get scene() { return scene; },
   };

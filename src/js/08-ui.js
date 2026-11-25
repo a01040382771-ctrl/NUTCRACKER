@@ -11,6 +11,8 @@ const UI = {
     king: { name: '생쥐 왕' },
     prince: { name: '호두까기 왕자' },
     fairy: { name: '설탕 요정' },
+    mouse: { name: '생쥐 보초' },
+    soldier: { name: '장난감 병정' },
   },
   init() {
     try { document.documentElement.style.setProperty('--paper', `url(${paperDataURL()})`); } catch (e) { /* no paper grain */ }
@@ -71,10 +73,26 @@ const UI = {
   setAction(kind, label) {
     if (this.actKind === kind + label) return;
     this.actKind = kind + label;
-    const icon = { interact: '#i-wand', gift: '#i-gift', music: '#i-music', clock: '#i-clock', star: '#i-star', eye: '#i-eye', throw: '#i-slipper', spin: '#i-wand', next: '#i-next', portal: '#i-star' }[kind] || '#i-wand';
+    const icon = { interact: '#i-wand', gift: '#i-gift', music: '#i-music', clock: '#i-clock', star: '#i-star', eye: '#i-eye', throw: '#i-slipper', spin: '#i-wand', next: '#i-next', portal: '#i-star', build: '#i-castle', piece: '#i-block', lever: '#i-lever' }[kind] || '#i-wand';
     $('actUse').setAttribute('href', icon);
     $('actLabel').textContent = label;
     $('btnAct').classList.toggle('ready', kind !== 'spin' && kind !== 'next');
+  },
+  setChapterHud(no, title, icon) {
+    $('plNo').textContent = no; $('plTitle').textContent = title;
+    $('cntUse').setAttribute('href', `#${icon}`); $('objUse').setAttribute('href', `#${icon}`);
+  },
+  clearCard(o) {
+    $('clrKicker').textContent = o.kicker; $('clrTitle').textContent = o.title;
+    $('clrSeal').setAttribute('href', `#${o.icon}`);
+    const dl = $('clrStats'); dl.textContent = '';
+    for (const [k, v] of o.stats) {
+      const d = document.createElement('div'), dt = document.createElement('dt'), dd = document.createElement('dd');
+      dt.textContent = k; dd.textContent = v; d.append(dt, dd); dl.appendChild(d);
+    }
+    $('clrUnlock').innerHTML = o.unlock;
+    $('btnClearNext').hidden = !o.next;
+    $('btnClearMap').classList.toggle('primary', !o.next);
   },
   chapterCard(no, title) {
     const c = $('chapterCard');

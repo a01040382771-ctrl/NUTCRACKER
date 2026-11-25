@@ -5,11 +5,11 @@
   <!-- in-game HUD -->
   <div id="hud" hidden>
     <div class="hud-left">
-      <div class="plaque"><span class="pl-no">제1장</span><span class="pl-title">크리스마스 저택</span></div>
-      <div class="objective" id="objective"><svg class="obj-ico" aria-hidden="true"><use href="#i-star"/></svg><span id="objText"></span></div>
+      <div class="plaque"><span class="pl-no" id="plNo">제1장</span><span class="pl-title" id="plTitle">크리스마스 저택</span></div>
+      <div class="objective" id="objective"><svg class="obj-ico" aria-hidden="true"><use id="objUse" href="#i-star"/></svg><span id="objText"></span></div>
     </div>
     <div class="hud-right">
-      <div class="counter" id="starCounter" aria-label="모은 별"><svg class="ico" aria-hidden="true"><use href="#i-star"/></svg><b id="starNum">0</b><span>/ 12</span></div>
+      <div class="counter" id="starCounter" aria-label="모은 개수"><svg class="ico" aria-hidden="true"><use id="cntUse" href="#i-star"/></svg><b id="starNum">0</b><span>/ 12</span></div>
       <button class="medal small" id="btnPause" aria-label="일시정지"><svg aria-hidden="true"><use href="#i-pause"/></svg></button>
     </div>
   </div>
@@ -21,6 +21,24 @@
     <svg class="cc-orn" viewBox="0 0 240 24" aria-hidden="true"><use href="#orn-line"/></svg>
   </div>
   <div id="hint" class="hint" hidden></div>
+
+  <!-- palace assembly (chapter II) -->
+  <div id="build" hidden>
+    <div class="bd-top">
+      <div class="bd-banner"><span class="bd-kick" id="bdKick">조립 · 제1단계</span><span class="bd-name" id="bdName">기단과 정문</span><span class="bd-dots" id="bdDots"></span></div>
+      <button class="medal small" id="btnBuildExit" aria-label="조립 그만하기"><svg aria-hidden="true"><use href="#i-exit"/></svg><span>나가기</span></button>
+    </div>
+    <div class="bd-bottom">
+      <p class="bd-msg" id="bdMsg">조각을 하나 골라요</p>
+      <div class="bd-row">
+        <div class="bd-tray scroll-ok" id="bdTray"></div>
+        <div class="bd-rot" id="bdRot" hidden>
+          <button class="medal" id="btnRotL" aria-label="왼쪽으로 돌리기"><svg aria-hidden="true"><use href="#i-rotl"/></svg></button>
+          <button class="medal" id="btnRotR" aria-label="오른쪽으로 돌리기"><svg aria-hidden="true"><use href="#i-rotr"/></svg></button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- touch controls -->
   <div id="controls" hidden>
@@ -109,17 +127,14 @@
   <!-- chapter clear -->
   <section id="screenClear" class="screen dim scroll-ok" hidden>
     <div class="card">
-      <div class="card-kicker">제1장 · 이야기 끝</div>
-      <h2>크리스마스 저택</h2>
-      <div class="seal"><svg aria-hidden="true"><use href="#i-star"/></svg></div>
-      <dl class="stats">
-        <div><dt>모은 별</dt><dd id="clrStars">12 / 12</dd></div>
-        <div><dt>걸린 시간</dt><dd id="clrTime">0:00</dd></div>
-        <div><dt>던진 슬리퍼</dt><dd id="clrThrows">0</dd></div>
-      </dl>
-      <div class="unlock"><svg aria-hidden="true"><use href="#i-key"/></svg><p><b>제2장 · 장난감 왕국</b>이 열렸어요!<br><span>다음 무대는 지금 준비 중이에요.</span></p></div>
+      <div class="card-kicker" id="clrKicker">제1장 · 이야기 끝</div>
+      <h2 id="clrTitle">크리스마스 저택</h2>
+      <div class="seal"><svg aria-hidden="true"><use id="clrSeal" href="#i-star"/></svg></div>
+      <dl class="stats" id="clrStats"></dl>
+      <div class="unlock"><svg aria-hidden="true"><use href="#i-key"/></svg><p id="clrUnlock"></p></div>
       <div class="card-btns">
-        <button class="btn primary" id="btnClearMap">챕터 지도 보기</button>
+        <button class="btn primary" id="btnClearNext">제2장으로 떠나기</button>
+        <button class="btn" id="btnClearMap">챕터 지도 보기</button>
         <button class="btn" id="btnClearReplay">다시 하기</button>
       </div>
     </div>
@@ -153,6 +168,12 @@
     <symbol id="i-snow" viewBox="0 0 48 48"><g stroke="currentColor" stroke-width="3.2" stroke-linecap="round" fill="none"><path d="M24 4v40M6.7 14l34.6 20M6.7 34l34.6-20"/><path d="M19 8l5 5 5-5M19 40l5-5 5 5M8 21l7-2-2-7M40 27l-7 2 2 7M8 27l7 2-2 7M40 21l-7-2 2-7"/></g></symbol>
     <symbol id="i-candy" viewBox="0 0 48 48"><circle cx="24" cy="24" r="10" fill="currentColor"/><path fill="currentColor" d="M14.5 21L4 15v18l10.5-6zM33.5 21L44 15v18l-10.5-6z"/></symbol>
     <symbol id="i-crown" viewBox="0 0 48 48"><path fill="currentColor" d="M6 16l9 9 9-15 9 15 9-9-4 22H10z"/><rect x="10" y="38" width="28" height="5" rx="1.5" fill="currentColor"/><circle cx="24" cy="8" r="3" fill="currentColor"/></symbol>
+    <symbol id="i-block" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2.4l8.4 4.5L12 11.4 3.6 6.9z"/><path fill="currentColor" opacity=".72" d="M3.6 6.9L12 11.4v10.2l-8.4-4.5z"/><path fill="currentColor" opacity=".48" d="M20.4 6.9v10.2L12 21.6V11.4z"/><circle cx="7.8" cy="14.2" r="1.7" fill="#fff4d6" opacity=".85"/></symbol>
+    <symbol id="i-castle" viewBox="0 0 48 48"><path fill="currentColor" d="M6 42V21l4-5 4 5v4h4V13l6-9 6 9v12h4v-4l4-5 4 5v21H28v-8a4 4 0 0 0-8 0v8z"/><circle cx="24" cy="15" r="2.4" fill="#fff4d6" opacity=".8"/></symbol>
+    <symbol id="i-rotl" viewBox="0 0 24 24"><path d="M6.4 9.2A7.2 7.2 0 1 1 5.6 15" stroke="currentColor" stroke-width="2.6" fill="none" stroke-linecap="round"/><path fill="currentColor" d="M2.6 5.2l6.6.6-3.6 5.6z"/></symbol>
+    <symbol id="i-rotr" viewBox="0 0 24 24"><path d="M17.6 9.2A7.2 7.2 0 1 0 18.4 15" stroke="currentColor" stroke-width="2.6" fill="none" stroke-linecap="round"/><path fill="currentColor" d="M21.4 5.2l-6.6.6 3.6 5.6z"/></symbol>
+    <symbol id="i-exit" viewBox="0 0 24 24"><path d="M9 4.5H5.5v15H9" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M10.5 12H20m-3.6-3.8L20 12l-3.6 3.8" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-lever" viewBox="0 0 24 24"><rect x="4" y="16.5" width="16" height="4.5" rx="1.5" fill="currentColor"/><path d="M12 17.5L16.5 5.5" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/><circle cx="17" cy="4.6" r="2.6" fill="currentColor"/></symbol>
     <symbol id="orn-line" viewBox="0 0 240 24"><g fill="url(#foil)"><path d="M0 12.6h92l4-1.2 4 1.2H0z" opacity=".9"/><path d="M240 12.6h-92l-4-1.2-4 1.2H240z" opacity=".9"/><path d="M120 2l3.2 6.6 7.2.9-5.3 5 1.4 7.2-6.5-3.5-6.5 3.5 1.4-7.2-5.3-5 7.2-.9z"/><circle cx="102" cy="12" r="2.4"/><circle cx="138" cy="12" r="2.4"/></g></symbol>
   </defs>
 </svg>

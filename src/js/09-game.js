@@ -3,8 +3,8 @@
    ===================================================================== */
 const PHYS = { R: 0.3, HGT: 1.5, STEP: 0.32, SPEED: 4.6, JUMP: 5.9, GRAV: 13.5 };
 const STAR_GOAL = 8, STAR_TOTAL = 12, WAVE_SIZE = 5, KING_HP = 4;
-const G = { mode: 'loading', phase: 'none', stars: 0, time: 0, locked: true, combat: false, throws: 0, waveKills: 0, waveSpawned: 0, kingHits: 0, lastStarT: 0, hintI: 0, mood: 0, shakeT: 0 };
-const player = { pos: V3(0, 0, 6), vel: V3(), yaw: Math.PI, vy: 0, grounded: true, stun: 0, invuln: 0, knock: V3(), knockT: 0, coyote: 0, jumpBuf: 0, stepT: 0, throwCd: 0, speed: 0 };
+const G = { mode: 'loading', chapter: 1, phase: 'none', stars: 0, time: 0, locked: true, combat: false, throws: 0, waveKills: 0, waveSpawned: 0, kingHits: 0, lastStarT: 0, hintI: 0, mood: 0, shakeT: 0 };
+const player = { pos: V3(0, 0, 6), vel: V3(), yaw: Math.PI, vy: 0, grounded: true, groundCol: null, stun: 0, invuln: 0, knock: V3(), knockT: 0, coyote: 0, jumpBuf: 0, stepT: 0, throwCd: 0, speed: 0 };
 const flags = {};
 let renderer, scene, camera, W;
 let clara, nut, prince, fairyFig, fairyBig, king, starSet, portal, magicSnow, stageSnow, marker, owlGlow;
@@ -15,7 +15,7 @@ const NOIN = { x: 0, z: 0, m: 0 };
 
 /* ---------------- collisions ---------------- */
 function resolve(pos, r, y, h) {
-  const lists = [W.colliders, DYN];
+  const lists = [W.colliders, W.dyn];
   for (let it = 0; it < 3; it++) {
     let moved = false;
     for (const list of lists) for (const c of list) {
@@ -41,13 +41,15 @@ function resolve(pos, r, y, h) {
   pos.x = clamp(pos.x, B.x0 + e, B.x1 - e); pos.z = clamp(pos.z, B.z0 + e, B.z1);
   return pos;
 }
+/* the collider whose top was returned by the last groundAt call (null = the floor) */
+let GROUND_COL = null;
 function groundAt(x, z, y) {
-  let g = 0;
-  for (const list of [W.colliders, DYN]) for (const c of list) {
+  let g = 0; GROUND_COL = null;
+  for (const list of [W.colliders, W.dyn]) for (const c of list) {
     if (!c.on || !c.walk || c.top > y + PHYS.STEP + 0.001 || c.top <= g) continue;
     const m = 0.1;
-    if (c.t === 'c') { const dx = x - c.x, dz = z - c.z; if (dx * dx + dz * dz <= (c.r + m) * (c.r + m)) g = c.top; }
-    else if (x >= c.x0 - m && x <= c.x1 + m && z >= c.z0 - m && z <= c.z1 + m) g = c.top;
+    if (c.t === 'c') { const dx = x - c.x, dz = z - c.z; if (dx * dx + dz * dz <= (c.r + m) * (c.r + m)) { g = c.top; GROUND_COL = c; } }
+    else if (x >= c.x0 - m && x <= c.x1 + m && z >= c.z0 - m && z <= c.z1 + m) { g = c.top; GROUND_COL = c; }
   }
   return g;
 }
@@ -58,15 +60,16 @@ function toScreen(v) {
 }
 
 /* ---------------- camera rig ---------------- */
+const CAM1 = { fx: 0.88, kx: 0.97, clamp: 9.5, look: 1.2, up: 5.1, back: 9.9, ahead: 1.9 };
 const Cam = {
-  pos: V3(0, 6.4, 31), target: V3(0, 5.2, 0), mode: 'free', shake: 0, zoom: 1, fov: 42, sway: 0,
+  pos: V3(0, 6.4, 31), target: V3(0, 5.2, 0), mode: 'free', shake: 0, zoom: 1, fov: 42, sway: 0, cfg: CAM1,
   update(dt) {
     if (this.mode === 'follow') {
-      const p = player.pos;
+      const p = player.pos, C = this.cfg;
       const la = _v1.set(player.vel.x * 0.22, 0, player.vel.z * 0.16);
-      const tx = p.x * 0.88 + la.x, ty = 1.2 + p.y * 0.65, tz = p.z - 1.9 + la.z;
+      const tx = p.x * C.fx + la.x, ty = C.look + p.y * 0.65, tz = p.z - C.ahead + la.z;
       const z = this.zoom;
-      const px = clamp(tx * 0.97, -9.5, 9.5), py = ty + 5.1 * z + p.y * 0.1, pz = tz + 9.9 * z;
+      const px = clamp(tx * C.kx, -C.clamp, C.clamp), py = ty + C.up * z + p.y * 0.1, pz = tz + C.back * z;
       this.target.x = damp(this.target.x, tx, 5, dt); this.target.y = damp(this.target.y, ty, 5, dt); this.target.z = damp(this.target.z, tz, 5, dt);
       this.pos.x = damp(this.pos.x, px, 3.6, dt); this.pos.y = damp(this.pos.y, py, 3.6, dt); this.pos.z = damp(this.pos.z, pz, 3.6, dt);
     }
@@ -111,6 +114,8 @@ function applyMood(k) {
 
 /* ---------------- actors ---------------- */
 function createActors() {
+  const R1 = W.root;
+  W.dyn = DYN;
   clara = buildDoll('clara');
   scene.add(clara.root);
   blobs.clara = makeBlob(0.42); scene.add(blobs.clara);
@@ -127,18 +132,18 @@ function createActors() {
   fairyBig.root.visible = false;
   scene.add(fairyBig.root);
   king = buildMouseKing();
-  king.root.visible = false; scene.add(king.root);
-  blobs.king = makeBlob(0.75); blobs.king.visible = false; scene.add(blobs.king);
+  king.root.visible = false; R1.add(king.root);
+  blobs.king = makeBlob(0.75); blobs.king.visible = false; R1.add(blobs.king);
   for (let i = 0; i < 6; i++) {
-    const m = buildMouse(); m.root.visible = false; scene.add(m.root);
-    const b = makeBlob(0.3); b.visible = false; scene.add(b);
+    const m = buildMouse(); m.root.visible = false; R1.add(m.root);
+    const b = makeBlob(0.3); b.visible = false; R1.add(b);
     mice.push({ m, blob: b, pos: V3(), vel: V3(), state: 'off', t: 0, yaw: 0, seed: rnd(0, 10), speed: 0 });
   }
   const homes = [[7.4, 7.3], [8.2, 7.3], [9.0, 7.3], [9.8, 7.3]];
   homes.forEach(([x, z], i) => {
     const s = buildSoldier(i);
-    s.root.position.set(x, 0, z); scene.add(s.root);
-    const b = makeBlob(0.26); b.position.set(x, 0.015, z); scene.add(b);
+    s.root.position.set(x, 0, z); R1.add(s.root);
+    const b = makeBlob(0.26); b.position.set(x, 0.015, z); R1.add(b);
     const col = { t: 'c', x, z, r: 0.22, top: 1.5, bottom: 0, walk: false, on: true };
     DYN.push(col);
     soldiers.push({ s, blob: b, home: V3(x, 0, z), pos: V3(x, 0, z), yaw: 0, cd: rnd(0, 1), col, target: null, poke: 0 });
@@ -149,25 +154,25 @@ function createActors() {
     sb.add(GEO.torus(0.055, 0.012, 6, 14), '#f7d3dc', TRS(0, 0.03, -0.03, Math.PI / 2.4, 0, 0));
     sb.add(tubeGeo([[0, 0.03, -0.02], [0.05, 0.1, -0.05], [0.1, 0.06, -0.12]], 0.008, 10, 4), '#f7d3dc');
     const mesh = sb.build({ cast: false });
-    mesh.visible = false; scene.add(mesh);
+    mesh.visible = false; R1.add(mesh);
     slippers.push({ mesh, on: false, t: 0, T: 0.4, from: V3(), to: V3(), h: 1, target: null, pos: V3() });
   }
   W.train.cars.forEach((c) => DYN.push(c.col));
   W.props.top.col = { t: 'c', x: 0, z: 0, r: 0.3, top: 0.7, bottom: 0, walk: false, on: true };
   DYN.push(W.props.top.col);
   starSet = new StarSet(16);
-  scene.add(starSet.mesh, starSet.halo);
-  portal = makePortal(); portal.position.set(0, 0, -0.5); scene.add(portal);
+  R1.add(starSet.mesh, starSet.halo);
+  portal = makePortal(); portal.position.set(0, 0, -0.5); R1.add(portal);
   magicSnow = makeSnow(DEVICE.mobile ? 220 : 380, [-12.5, 0.2, -8.5], [12.5, 9.5, 9.5], { size: 1.0, speed: 0.55, color: '#dfe9ff', additive: true, opacity: 0 });
-  scene.add(magicSnow);
+  R1.add(magicSnow);
   stageSnow = makeSnow(DEVICE.mobile ? 160 : 260, [-16, 0, 10.8], [16, 15, 15], { size: 1.3, speed: 0.75, opacity: 0.9 });
-  scene.add(stageSnow);
+  R1.add(stageSnow);
   const mb = new Batch(MAT.gold);
   mb.add(GEO.cone(4), '#ffd77a', TRS(0, 0, 0, Math.PI, 0, 0, 0.16, 0.3, 0.16));
   mb.add(GEO.sph(8, 6), '#ffe9a8', TRS(0, 0.22, 0, 0, 0, 0, 0.07));
   marker = mb.build({ cast: false }); marker.visible = false; scene.add(marker);
   owlGlow = makeGlowPoints(W.owlEyes.map((p) => ({ p, c: '#ffb43c', s: 0.7, tw: 0.2 })), { boost: 0 });
-  scene.add(owlGlow);
+  R1.add(owlGlow);
   // dynamic actors never bake into the static shadow map
   [clara.root, nut.root, prince.root, fairyBig.root, king.root, ...mice.map((m) => m.m.root), ...soldiers.map((s) => s.s.root), ...slippers.map((s) => s.mesh)].forEach((r) => r.traverse((o) => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = true; } }));
   fairyFig.root.traverse((o) => { if (o.isMesh) o.castShadow = false; });
@@ -176,6 +181,14 @@ function createActors() {
 /* ---------------- Clara ---------------- */
 function updatePlayer(dt) {
   const p = player;
+  // ride whatever Clara stands on (train cars, carousel, revolving stage)
+  const gcol = p.groundCol;
+  if (p.grounded && gcol && gcol.on && gcol.mv) {
+    const m = gcol.mv;
+    let ox = p.pos.x - m.ox, oz = p.pos.z - m.oz;
+    if (m.dyaw) { const s = Math.sin(m.dyaw), c = Math.cos(m.dyaw), nx = ox * c + oz * s, nz = -ox * s + oz * c; ox = nx; oz = nz; p.yaw += m.dyaw; }
+    p.pos.x = m.nx + ox; p.pos.z = m.nz + oz;
+  }
   const inp = G.locked || p.stun > 0 ? NOIN : Input.read();
   if (inp.m > 0 && G.mode === 'play') Input.anyMove = true;
   const sp = PHYS.SPEED;
@@ -190,7 +203,7 @@ function updatePlayer(dt) {
   p.pos.x = np.x; p.pos.z = np.z;
   p.jumpBuf -= dt; p.coyote -= dt;
   if (p.jumpBuf > 0 && (p.grounded || p.coyote > 0) && p.stun <= 0 && !G.locked) {
-    p.vy = PHYS.JUMP; p.grounded = false; p.coyote = 0; p.jumpBuf = 0;
+    p.vy = PHYS.JUMP; p.grounded = false; p.coyote = 0; p.jumpBuf = 0; p.groundCol = null;
     Sound.sfxJump();
     for (let i = 0; i < 10; i++) FX.add.spawn({ x: p.pos.x + rnd(-0.3, 0.3), y: p.pos.y + 0.1, z: p.pos.z + rnd(-0.3, 0.3), vy: rnd(0.2, 1), life: 0.7, size: rnd(0.15, 0.3), size1: 0, color: pick(GOLDS), cell: CELL.sparkle, rot: rnd(0, 3) });
   }
@@ -198,10 +211,17 @@ function updatePlayer(dt) {
   else p.vy -= PHYS.GRAV * dt;
   p.pos.y += p.vy * dt;
   const g = p.float ? -1e9 : groundAt(p.pos.x, p.pos.z, p.pos.y);
+  const gc = GROUND_COL;
   if (p.pos.y <= g) {
-    if (!p.grounded && p.vy < -3.2) { Sound.sfxLand(); clara.body.scale.set(1.06, 0.9, 1.06); }
-    p.pos.y = g; p.vy = 0; p.grounded = true;
-  } else if (p.pos.y > g + 0.04 && p.grounded) { p.grounded = false; p.coyote = 0.13; }
+    const landing = !p.grounded;
+    if (landing && p.vy < -3.2) { Sound.sfxLand(); clara.body.scale.set(1.06, 0.9, 1.06); }
+    p.pos.y = g; p.vy = 0; p.grounded = true; p.groundCol = gc;
+    if (landing && gc && gc.bounce && !G.locked) { p.vy = gc.bounce; p.grounded = false; p.groundCol = null; if (gc.onBounce) gc.onBounce(); }
+    else if (landing && gc && gc.onLand) gc.onLand();
+  } else if (p.pos.y > g + 0.04 && p.grounded) {
+    if (gc && gc === p.groundCol && gc.stick && p.pos.y - g < 0.3) { p.pos.y = g; p.vy = 0; }
+    else { p.grounded = false; p.coyote = 0.13; p.groundCol = null; }
+  }
   if (!p.grounded && Math.random() < dt * 30) FX.add.spawn({ x: p.pos.x + rnd(-0.2, 0.2), y: p.pos.y + rnd(0.2, 0.9), z: p.pos.z + rnd(-0.2, 0.2), life: 0.6, size: rnd(0.12, 0.22), size1: 0, color: pick(GOLDS), cell: CELL.sparkle, rot: rnd(0, 3) });
   if (p.speed > 0.4 && !p.lockFacing) p.yaw = dampAngle(p.yaw, Math.atan2(p.vel.x, p.vel.z), 11, dt);
   if (p.grounded && p.speed > 1) { p.stepT += dt * p.speed * 0.5; if (p.stepT > 1) { p.stepT = 0; Sound.sfxStep(); } }

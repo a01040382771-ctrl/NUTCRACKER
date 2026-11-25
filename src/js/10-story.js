@@ -3,7 +3,7 @@
    ===================================================================== */
 const CHAPTERS = [
   { id: 'mansion', no: '제1장', roman: 'I', title: '크리스마스 저택', en: 'The Christmas Mansion', icon: 'i-house', desc: '크리스마스 이브, 슈탈바움 저택의 거실. 드로셀마이어 아저씨의 선물과 빛을 잃은 트리의 별, 그리고 자정의 비밀이 클라라를 기다려요.' },
-  { id: 'toys', no: '제2장', roman: 'II', title: '장난감 왕국', en: 'The Toy Kingdom', icon: 'i-soldier', desc: '커다래진 트리 아래, 양철 병정과 태엽 인형이 사는 장난감 왕국. 달아난 생쥐 군대가 숨어서 기회를 엿보고 있어요.' },
+  { id: 'toys', no: '제2장', roman: 'II', title: '장난감 왕국', en: 'The Toy Kingdom', icon: 'i-soldier', desc: '커다래진 트리 아래, 양철 병정과 태엽 인형이 사는 장난감 왕국. 생쥐 왕이 흩뜨려 놓은 왕궁 조각 열두 개를 찾아 설계도대로 다시 조립해야 해요.' },
   { id: 'snow', no: '제3장', roman: 'III', title: '눈송이의 숲', en: 'The Snowflake Forest', icon: 'i-snow', desc: '눈송이 요정들이 왈츠를 추는 은빛 숲. 바람을 타고 춤추듯 뛰어올라 길을 찾아야 해요.' },
   { id: 'sweets', no: '제4장', roman: 'IV', title: '과자의 왕국', en: 'The Kingdom of Sweets', icon: 'i-candy', desc: '사탕 지팡이 다리와 초콜릿 강이 흐르는 달콤한 나라. 과자 장인들이 클라라를 위한 축제를 준비하고 있어요.' },
   { id: 'palace', no: '제5장', roman: 'V', title: '설탕 요정의 궁전', en: 'The Sugar Plum Palace', icon: 'i-crown', desc: '설탕 결정으로 지은 반짝이는 궁전. 설탕 요정이 마지막 춤으로 클라라의 꿈을 완성해 줄 거예요.' },
@@ -37,6 +37,22 @@ const FLAVOR = {
 };
 const fmtTime = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
+/* which stage is lit: 1 = the mansion, 2 = the toy kingdom */
+const World = {
+  W1: null,
+  use(ch) {
+    const toy = ch === 2 && !!Toy.W;
+    G.chapter = toy ? 2 : 1;
+    this.W1.root.visible = !toy;
+    if (Toy.W) Toy.W.root.visible = toy;
+    W = toy ? Toy.W : this.W1;
+    scene.fog = toy ? Toy.fog : null;
+    scene.background = toy ? Toy.bg : TEX.bg;
+    Cam.cfg = toy ? CAM2 : CAM1;
+    renderer.shadowMap.needsUpdate = true;
+  },
+};
+
 const Story = {
   near: null, roomShot: '', mapSel: 0, spawnT: 0, crownDrop: null, prevMode: 'play', interacts: [],
   run(fn) { Promise.resolve().then(fn).catch((e) => { if (e !== CANCELLED) console.error(e); }); },
@@ -57,16 +73,20 @@ const Story = {
     on('btnStart', () => { Sound.sfxUI(); this.startChapter(); });
     on('btnChapters', () => { Sound.sfxUI(); this.openMap(); });
     on('btnMapBack', () => { Sound.sfxUI(); UI.hide('screenMap'); UI.show('screenTitle'); });
-    on('btnPlayChapter', () => { if (this.mapSel === 0) { Sound.sfxUI(); this.startChapter(); } });
+    on('btnPlayChapter', () => {
+      if (this.mapSel === 0) { Sound.sfxUI(); this.startChapter(); }
+      else if (this.mapSel === 1 && Save.data.unlocked >= 2) { Sound.sfxUI(); Toy.start(); }
+    });
     on('btnPause', () => this.pause());
     on('btnResume', () => this.resume());
-    on('btnRestart', () => { Sound.sfxUI(); this.startChapter(); });
+    on('btnRestart', () => { Sound.sfxUI(); if (G.chapter === 2) Toy.start(); else this.startChapter(); });
     on('btnToMap', () => { Sound.sfxUI(); this.toTitle(); this.openMap(); });
     on('btnSound', () => this.toggleSound());
     on('btnSoundTitle', () => this.toggleSound());
     on('btnQuality', () => { const order = ['auto', 'high', 'low']; const q = order[(order.indexOf(Perf.quality) + 1) % 3]; setQuality(q); Save.data.quality = q; Save.write(); this.syncToggles(); });
-    on('btnClearMap', () => { Sound.sfxUI(); this.toTitle(); this.mapSel = 1; this.openMap(); });
-    on('btnClearReplay', () => { Sound.sfxUI(); this.startChapter(); });
+    on('btnClearMap', () => { Sound.sfxUI(); const next = Math.min(CHAPTERS.length - 1, G.chapter); this.toTitle(); this.mapSel = next; this.openMap(); });
+    on('btnClearReplay', () => { Sound.sfxUI(); if (G.chapter === 2) Toy.start(); else this.startChapter(); });
+    on('btnClearNext', () => { Sound.sfxUI(); Toy.start(); });
     this.syncToggles();
   },
   toggleSound() {
@@ -118,6 +138,7 @@ const Story = {
   /* ---------- screens ---------- */
   toTitle(first) {
     RUN_ID++; Tasks.clear(); UI.closeDialog();
+    Toy.leave(); World.use(1);
     this.resetWorld();
     G.mode = 'title'; G.locked = true;
     Cam.set([0, 6.6, 34], [0, 5.2, 0]); Cam.mode = 'title';
@@ -143,24 +164,28 @@ const Story = {
       const li = document.createElement('li');
       const b = document.createElement('button');
       b.className = `toc-item${unlocked ? '' : ' locked'}${i === this.mapSel ? ' sel' : ''}`;
-      const state = done ? `<svg><use href="#i-star"/></svg>${done.stars}/12` : unlocked ? (i === 0 ? '별 12개' : '준비 중') : '잠김';
+      const state = done ? (i === 1 ? `<svg><use href="#i-block"/></svg>${done.pieces}/12` : `<svg><use href="#i-star"/></svg>${done.stars}/12`) : unlocked ? (i === 0 ? '별 12개' : i === 1 ? '조각 12개' : '준비 중') : '잠김';
       b.innerHTML = `<span class="toc-ico"><svg><use href="#${unlocked ? ch.icon : 'i-lock'}"/></svg></span><span class="toc-no">${ch.roman}</span><span class="toc-name">${ch.title}</span><span class="toc-state">${state}</span>`;
       b.addEventListener('click', () => { this.mapSel = i; Sound.sfxUI(); this.renderMap(); });
       li.appendChild(b); toc.appendChild(li);
     });
-    const ch = CHAPTERS[this.mapSel], unlocked = this.mapSel < Save.data.unlocked, done = Save.data.done[ch.id];
+    const sel = this.mapSel, ch = CHAPTERS[sel], unlocked = sel < Save.data.unlocked, done = Save.data.done[ch.id];
+    const playable = unlocked && sel <= 1;
     $('mapNo').textContent = `${ch.no} · Chapter ${ch.roman}`; $('mapTitle').textContent = ch.title; $('mapEn').textContent = ch.en; $('mapDesc').textContent = ch.desc;
-    const img = $('mapImg');
-    if (this.mapSel === 0 && this.roomShot) { img.src = this.roomShot; img.hidden = false; $('mapArtIco').hidden = true; }
+    const img = $('mapImg'), shot = sel === 0 ? this.roomShot : sel === 1 ? Toy.shot : '';
+    if (shot) { img.src = shot; img.hidden = false; $('mapArtIco').hidden = true; }
     else { img.hidden = true; $('mapArtIco').hidden = false; $('mapArtUse').setAttribute('href', `#${ch.icon}`); }
     const veil = $('mapLock');
-    if (!unlocked) { veil.hidden = false; $('mapLockText').textContent = `${CHAPTERS[this.mapSel - 1].title}을 마치면 열려요`; }
-    else if (this.mapSel > 0) { veil.hidden = false; $('mapLockText').textContent = '이 무대는 지금 정성껏 꾸미는 중이에요'; }
+    if (!unlocked) { veil.hidden = false; $('mapLockText').textContent = `${CHAPTERS[sel - 1].title}을 마치면 열려요`; }
+    else if (!playable) { veil.hidden = false; $('mapLockText').textContent = '이 무대는 지금 정성껏 꾸미는 중이에요'; }
     else veil.hidden = true;
-    $('mapStats').textContent = done ? `최고 기록 ${fmtTime(done.best || done.time)} · 별 ${done.stars}/12` : this.mapSel === 0 ? '마법의 별 12개 · 약 8–12분' : '';
+    let stats = '';
+    if (sel === 0) stats = done ? `최고 기록 ${fmtTime(done.best || done.time)} · 별 ${done.stars}/12` : '마법의 별 12개 · 약 8–12분';
+    else if (sel === 1 && unlocked) stats = done ? `최고 기록 ${fmtTime(done.best || done.time)} · 조각 ${done.pieces}/12` : '왕궁 조각 12개 · 약 12–18분';
+    $('mapStats').textContent = stats;
     const btn = $('btnPlayChapter');
-    btn.disabled = this.mapSel !== 0;
-    btn.textContent = this.mapSel === 0 ? (done ? '다시 펼치기' : '이야기 펼치기') : unlocked ? '곧 공개돼요' : '잠겨 있어요';
+    btn.disabled = !playable;
+    btn.textContent = playable ? (done ? '다시 펼치기' : '이야기 펼치기') : unlocked ? '곧 공개돼요' : '잠겨 있어요';
   },
   pause() {
     if (G.mode !== 'play' && G.mode !== 'cutscene') return;
@@ -174,6 +199,8 @@ const Story = {
   startChapter() {
     RUN_ID++; Tasks.clear(); UI.closeDialog();
     ['screenTitle', 'screenMap', 'screenClear', 'screenPause'].forEach((id) => UI.hide(id));
+    Toy.leave(); World.use(1);
+    UI.setChapterHud('제1장', '크리스마스 저택', 'i-star');
     this.resetWorld();
     G.mode = 'cutscene'; G.locked = true;
     Cam.mode = 'free';
@@ -486,14 +513,17 @@ const Story = {
     Save.data.done.mansion = { stars: G.stars, time: G.time, throws: G.throws, best: prev ? Math.min(prev.best || prev.time, G.time) : G.time };
     Save.data.unlocked = Math.max(Save.data.unlocked, 2);
     Save.write();
-    $('clrStars').textContent = `${G.stars} / ${STAR_TOTAL}`;
-    $('clrTime').textContent = fmtTime(G.time);
-    $('clrThrows').textContent = String(G.throws);
+    UI.clearCard({
+      kicker: '제1장 · 이야기 끝', title: '크리스마스 저택', icon: 'i-star',
+      stats: [['모은 별', `${G.stars} / ${STAR_TOTAL}`], ['걸린 시간', fmtTime(G.time)], ['던진 슬리퍼', String(G.throws)]],
+      unlock: '<b>제2장 · 장난감 왕국</b>이 열렸어요!<br><span>왕궁 조각을 찾아 조립하는 이야기가 이어져요.</span>', next: true,
+    });
     UI.show('screenClear');
   },
 
   /* ---------- per-frame story logic ---------- */
   tick(dt) {
+    if (G.chapter === 2) { Toy.tick(dt); return; }
     const t = FX.uniforms.uTime.value;
     if (fairyBig.root.visible) { fairyBig.root.position.y = 1.1 + Math.sin(t * 1.6) * 0.12; if (Math.random() < dt * 14) FX.add.spawn({ x: rnd(-0.7, 0.7), y: rnd(1, 3), z: -1.25 + rnd(-0.4, 0.4), vy: 0.4, life: 1, size: 0.25, size1: 0, color: pick(['#ffd6e0', '#cfe3ff', '#fff1c4']), cell: CELL.sparkle, rot: rnd(0, 3) }); }
     if (this.crownDrop && Math.random() < dt * 4) { const c = this.crownDrop.position; FX.add.spawn({ x: c.x + rnd(-0.3, 0.3), y: 0.3, z: c.z + rnd(-0.3, 0.3), vy: 0.4, life: 0.8, size: 0.2, size1: 0, color: '#ffe08a', cell: CELL.sparkle, rot: rnd(0, 3) }); }
