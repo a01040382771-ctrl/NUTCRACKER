@@ -23,5 +23,17 @@ const { open } = require('./harness.cjs');
   await ev(() => { const n = window.__nut, k = n.Toy.W.piano.keys[3]; n.player.pos.set(k.x, k.top + 0.6, k.z); n.player.vy = 0; n.player.groundCol = null; n.player.grounded = false; });
   const keys = await sample('({ press: n.Toy.W.piano.keys[3].press, y: n.player.pos.y, g: n.player.grounded })', 60);
   console.log('piano key: max press', Math.max(...keys.map((k) => k.press)).toFixed(2), 'clara y', keys[keys.length - 1].y.toFixed(2), 'grounded', keys[keys.length - 1].g);
+  // star: open the music box by hand, stand on the revolving stage and jump
+  await ev(() => {
+    const n = window.__nut, M = n.Toy.W.musicBox, st = n.Toy.pieces.star;
+    n.TG.boxOpen = true; M.lid.rotation.x = -1.92; M.col.top = 1.8; M.ballerina.root.visible = true; M.stage.position.y = 1.9; M.stageCol.top = 2.1; M.stageCol.on = true; M.balCol.on = true; M.open = 1;
+    st.state = 'world'; st.holder.visible = true;
+    n.player.pos.set(M.pos.x + 0.75, 2.3, M.pos.z); n.player.vy = 0; n.player.groundCol = null; n.player.grounded = false;
+  });
+  await page.waitForTimeout(1500);
+  const before = await ev(() => { const n = window.__nut; return { on: n.player.groundCol === n.Toy.W.musicBox.stageCol, y: n.player.pos.y.toFixed(2) }; });
+  await ev(() => { window.__nut.player.jumpBuf = 0.2; });
+  const jump = await sample('({ y: n.player.pos.y, got: !!n.TG.found.star })', 150);
+  console.log('star jump: on stage', JSON.stringify(before), 'apex', Math.max(...jump.map((j) => j.y)).toFixed(2), 'collected', jump.some((j) => j.got));
   await h.finish();
 })();
