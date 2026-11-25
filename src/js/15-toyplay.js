@@ -426,7 +426,7 @@ const Toy = {
     if (this.palaceGlow.material.uniforms.uBoost.value > 0 && Math.random() < dt * 8) { const P = TOY.palace; FX.add.spawn({ x: P.x + rnd(-4.5, 4.5), y: P.y + rnd(1, 9), z: P.z + rnd(-3, 4), vy: 0.5, life: 1.4, size: 0.3, size1: 0, color: pick(GOLDS), cell: CELL.star, rot: rnd(0, 3) }); }
     if (this.portal.visible) {
       const u = this.portal.userData, pp = this.portal.position;
-      u.ring.rotation.z = t * 0.4; u.ring2.rotation.z = -t * 0.7; u.column.material.opacity = 0.65 + Math.sin(t * 2.5) * 0.15;
+      u.ring.rotation.z = t * 0.4; u.ring2.rotation.z = -t * 0.7; u.column.material.opacity = 0.26 + Math.sin(t * 2.5) * 0.08;
       if (Math.random() < dt * 22) { const a = rnd(0, TAU), r = rnd(0, 1.2); FX.add.spawn({ x: pp.x + Math.cos(a) * r, y: 0.1, z: pp.z + Math.sin(a) * r, vy: rnd(1.2, 2.6), life: rnd(1.4, 2.4), size: rnd(0.15, 0.35), size1: 0, color: pick(['#ffe3a8', '#ffc0d6', '#ffffff', '#cfe3ff']), cell: i2(CELL.star, CELL.sparkle), rot: rnd(0, 3) }); }
     }
     if (fairyBig.root.visible) { fairyBig.update(dt, 0, false, 0); fairyBig.root.position.y = 1.2 + Math.sin(t * 1.6) * 0.12; }
