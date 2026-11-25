@@ -1,0 +1,9 @@
+{
+  "name": "nutcracker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "호두까기 인형 — 클라라의 마법 여행 (3D storybook ballet adventure, three.js)",
+  "scripts": {
+    "build": "node build.mjs"
+  }
+}

@@ -1,0 +1,158 @@
+<div id="app">
+  <canvas id="gl" aria-label="호두까기 인형 3D 무대"></canvas>
+  <div id="vignette"></div>
+
+  <!-- in-game HUD -->
+  <div id="hud" hidden>
+    <div class="hud-left">
+      <div class="plaque"><span class="pl-no">제1장</span><span class="pl-title">크리스마스 저택</span></div>
+      <div class="objective" id="objective"><svg class="obj-ico" aria-hidden="true"><use href="#i-star"/></svg><span id="objText"></span></div>
+    </div>
+    <div class="hud-right">
+      <div class="counter" id="starCounter" aria-label="모은 별"><svg class="ico" aria-hidden="true"><use href="#i-star"/></svg><b id="starNum">0</b><span>/ 12</span></div>
+      <button class="medal small" id="btnPause" aria-label="일시정지"><svg aria-hidden="true"><use href="#i-pause"/></svg></button>
+    </div>
+  </div>
+  <div id="toast" class="toast" hidden></div>
+  <div id="prompt" class="prompt" hidden><span id="promptText"></span><kbd class="kbd-only">E</kbd></div>
+  <div id="chapterCard" class="chapter-card" hidden>
+    <div class="cc-no">Chapter I</div>
+    <div class="cc-title">크리스마스 저택</div>
+    <svg class="cc-orn" viewBox="0 0 240 24" aria-hidden="true"><use href="#orn-line"/></svg>
+  </div>
+  <div id="hint" class="hint" hidden></div>
+
+  <!-- touch controls -->
+  <div id="controls" hidden>
+    <div id="stickZone"><div id="stickBase"><div id="stickKnob"></div></div></div>
+    <div id="buttons">
+      <button class="medal" id="btnJump" aria-label="점프"><svg aria-hidden="true"><use href="#i-leap"/></svg><span>점프</span></button>
+      <button class="medal big" id="btnAct" aria-label="상호작용"><svg aria-hidden="true"><use id="actUse" href="#i-wand"/></svg><span id="actLabel">피루엣</span></button>
+    </div>
+  </div>
+
+  <!-- storybook dialog -->
+  <div id="dialog" hidden>
+    <div class="portrait" id="dlgPortrait"></div>
+    <div class="dlg-body">
+      <div class="dlg-name" id="dlgName"></div>
+      <p id="dlgText"></p>
+    </div>
+    <div class="dlg-next" aria-hidden="true"><svg><use href="#i-next"/></svg></div>
+  </div>
+
+  <!-- loading -->
+  <section id="screenLoading" class="screen loading">
+    <div class="load-wrap">
+      <div class="script">The Nutcracker</div>
+      <div class="load-title">호두까기 인형</div>
+      <svg class="load-star" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-star"/></svg>
+      <div class="load-bar"><i id="loadBar"></i></div>
+      <p id="loadText">무대를 준비하고 있어요…</p>
+    </div>
+  </section>
+
+  <!-- title -->
+  <section id="screenTitle" class="screen title" hidden>
+    <div class="cartouche">
+      <div class="script">The Nutcracker</div>
+      <h1>호두까기 인형</h1>
+      <div class="sub">클라라의 마법 여행</div>
+      <svg class="orn" viewBox="0 0 240 24" aria-hidden="true"><use href="#orn-line"/></svg>
+      <div class="title-btns">
+        <button class="btn primary" id="btnStart">이야기 시작하기</button>
+        <button class="btn" id="btnChapters">챕터 선택</button>
+      </div>
+    </div>
+    <button class="medal small corner" id="btnSoundTitle" aria-label="소리 켜기·끄기"><svg aria-hidden="true"><use id="soundUse" href="#i-sound"/></svg></button>
+    <p class="title-foot">헤드폰을 끼면 오르골 소리가 더 아름다워요 · 모든 캐릭터와 무대는 코드로 그렸어요</p>
+  </section>
+
+  <!-- chapter map: an open storybook -->
+  <section id="screenMap" class="screen map scroll-ok" hidden>
+    <div class="book">
+      <div class="page left">
+        <div class="pg-kicker" id="mapNo">제1장</div>
+        <h2 id="mapTitle">크리스마스 저택</h2>
+        <div class="pg-en" id="mapEn">The Christmas Mansion</div>
+        <div class="pg-art" id="mapArt"><img id="mapImg" alt=""><div class="pg-art-ico" id="mapArtIco"><svg aria-hidden="true"><use id="mapArtUse" href="#i-house"/></svg></div><div class="lock-veil" id="mapLock" hidden><svg aria-hidden="true"><use href="#i-lock"/></svg><span id="mapLockText"></span></div></div>
+        <p class="pg-desc" id="mapDesc"></p>
+        <div class="pg-stats" id="mapStats"></div>
+        <button class="btn primary" id="btnPlayChapter">이야기 펼치기</button>
+      </div>
+      <div class="page right">
+        <div class="toc-head">차례</div>
+        <ol class="toc" id="toc"></ol>
+        <button class="btn ghost" id="btnMapBack">표지로 돌아가기</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- pause -->
+  <section id="screenPause" class="screen dim scroll-ok" hidden>
+    <div class="card small">
+      <div class="card-kicker">잠시 쉬어 가요</div>
+      <h2>일시정지</h2>
+      <div class="menu">
+        <button class="btn primary" id="btnResume">이어하기</button>
+        <button class="btn" id="btnRestart">처음부터 다시</button>
+        <button class="btn" id="btnToMap">챕터 지도</button>
+        <div class="toggles">
+          <button class="tog" id="btnSound">소리 <b id="soundState">켜짐</b></button>
+          <button class="tog" id="btnQuality">화질 <b id="qualityState">자동</b></button>
+        </div>
+      </div>
+      <p class="help" id="helpText"></p>
+    </div>
+  </section>
+
+  <!-- chapter clear -->
+  <section id="screenClear" class="screen dim scroll-ok" hidden>
+    <div class="card">
+      <div class="card-kicker">제1장 · 이야기 끝</div>
+      <h2>크리스마스 저택</h2>
+      <div class="seal"><svg aria-hidden="true"><use href="#i-star"/></svg></div>
+      <dl class="stats">
+        <div><dt>모은 별</dt><dd id="clrStars">12 / 12</dd></div>
+        <div><dt>걸린 시간</dt><dd id="clrTime">0:00</dd></div>
+        <div><dt>던진 슬리퍼</dt><dd id="clrThrows">0</dd></div>
+      </dl>
+      <div class="unlock"><svg aria-hidden="true"><use href="#i-key"/></svg><p><b>제2장 · 장난감 왕국</b>이 열렸어요!<br><span>다음 무대는 지금 준비 중이에요.</span></p></div>
+      <div class="card-btns">
+        <button class="btn primary" id="btnClearMap">챕터 지도 보기</button>
+        <button class="btn" id="btnClearReplay">다시 하기</button>
+      </div>
+    </div>
+  </section>
+
+  <div id="error" class="screen dim" hidden><div class="card small"><h2>무대 조명이 꺼졌어요</h2><p id="errorText"></p><button class="btn primary" id="btnReload">다시 불러오기</button></div></div>
+  <div id="fade"></div>
+</div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="foil" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#8a6424"/><stop offset=".3" stop-color="#f3dd9a"/><stop offset=".5" stop-color="#c9a04f"/><stop offset=".72" stop-color="#fff0c2"/><stop offset="1" stop-color="#9b7330"/>
+    </linearGradient>
+    <symbol id="i-star" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2.4l2.95 6.05 6.65.86-4.88 4.62 1.27 6.6L12 17.33l-5.99 3.2 1.27-6.6L2.4 9.31l6.65-.86z"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><rect x="6.5" y="5" width="4" height="14" rx="1.6" fill="currentColor"/><rect x="13.5" y="5" width="4" height="14" rx="1.6" fill="currentColor"/></symbol>
+    <symbol id="i-wand" viewBox="0 0 24 24"><path d="M4.5 19.5l9.2-9.2" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" fill="none"/><path fill="currentColor" d="M17 2.6l1.15 2.5 2.7.35-2 1.9.5 2.7L17 8.75l-2.35 1.3.5-2.7-2-1.9 2.7-.35z"/><circle cx="20.5" cy="12.5" r="1.1" fill="currentColor"/><circle cx="11.5" cy="3.8" r="0.9" fill="currentColor"/></symbol>
+    <symbol id="i-leap" viewBox="0 0 24 24"><path d="M6 19c1.2-6 4.5-10.4 10.6-12.3" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" fill="none"/><path d="M12.6 4.3l4.6 2.1-2.2 4.5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/><circle cx="6" cy="19.4" r="1.7" fill="currentColor"/></symbol>
+    <symbol id="i-slipper" viewBox="0 0 24 24"><path fill="currentColor" d="M2.5 14.6c3.4.4 5.4-2.6 8.4-2.6 2.6 0 3.8 1.9 6.8 1.9 2.2 0 3.8.9 3.8 2.6S20 19 16.8 19H6.3C3.9 19 2.4 17.4 2.5 14.6z"/><path d="M9 12.4c.6-2.4 2.6-4.6 5-5.6M12.2 13c1-2.2 2.8-3.8 5-4.4" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/></symbol>
+    <symbol id="i-gift" viewBox="0 0 24 24"><rect x="3.5" y="9" width="17" height="11.5" rx="1.5" fill="currentColor"/><rect x="2.5" y="6.5" width="19" height="4" rx="1" fill="currentColor"/><path d="M12 6.5v14" stroke="#f6e4b0" stroke-width="2"/><path d="M12 6.4C9 2.6 6.4 4 7.6 5.8c.8 1.1 4.4.6 4.4.6s3.6.5 4.4-.6C17.6 4 15 2.6 12 6.4z" fill="currentColor"/></symbol>
+    <symbol id="i-music" viewBox="0 0 24 24"><path fill="currentColor" d="M9 5.5l10-2.2v11.2a2.9 2.9 0 1 1-2-2.7V7.4l-6 1.3v8.1a2.9 2.9 0 1 1-2-2.7z"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.6" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M12 7v5.2l3.4 2" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" fill="none"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.5 12S6 5.8 12 5.8 21.5 12 21.5 12 18 18.2 12 18.2 2.5 12 2.5 12z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3.2" fill="currentColor"/></symbol>
+    <symbol id="i-next" viewBox="0 0 24 24"><path fill="currentColor" d="M5 8h14l-7 9z"/></symbol>
+    <symbol id="i-sound" viewBox="0 0 24 24"><path fill="currentColor" d="M4 9.2h3.6L12.4 5v14l-4.8-4.2H4z"/><path d="M15.4 8.6a5 5 0 0 1 0 6.8M17.9 6.2a8.4 8.4 0 0 1 0 11.6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></symbol>
+    <symbol id="i-mute" viewBox="0 0 24 24"><path fill="currentColor" d="M4 9.2h3.6L12.4 5v14l-4.8-4.2H4z"/><path d="M15.5 9.3l5 5.4m0-5.4l-5 5.4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2" fill="currentColor"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5" stroke="currentColor" stroke-width="2.2" fill="none"/></symbol>
+    <symbol id="i-key" viewBox="0 0 24 24"><circle cx="7.5" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M11.5 12H21m-3 0v3.2M15 12v2.4" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" fill="none"/></symbol>
+    <symbol id="i-house" viewBox="0 0 48 48"><path fill="currentColor" d="M6 22L24 8l18 14v18H31V29h-8v11H6z"/><path fill="currentColor" opacity=".55" d="M36 9h4v9l-4-3z"/><path fill="currentColor" d="M24 30.5l2 4 4.4.6-3.2 3 .8 4.3-4-2.1-4 2.1.8-4.3-3.2-3 4.4-.6z" opacity="0"/></symbol>
+    <symbol id="i-soldier" viewBox="0 0 48 48"><rect x="17" y="4" width="14" height="14" rx="5" fill="currentColor"/><circle cx="24" cy="22" r="5" fill="currentColor"/><rect x="16" y="27" width="16" height="12" rx="3" fill="currentColor"/><rect x="18" y="39" width="5" height="6" fill="currentColor"/><rect x="25" y="39" width="5" height="6" fill="currentColor"/><path d="M35 12v26" stroke="currentColor" stroke-width="2.4"/></symbol>
+    <symbol id="i-snow" viewBox="0 0 48 48"><g stroke="currentColor" stroke-width="3.2" stroke-linecap="round" fill="none"><path d="M24 4v40M6.7 14l34.6 20M6.7 34l34.6-20"/><path d="M19 8l5 5 5-5M19 40l5-5 5 5M8 21l7-2-2-7M40 27l-7 2 2 7M8 27l7 2-2 7M40 21l-7-2 2-7"/></g></symbol>
+    <symbol id="i-candy" viewBox="0 0 48 48"><circle cx="24" cy="24" r="10" fill="currentColor"/><path fill="currentColor" d="M14.5 21L4 15v18l10.5-6zM33.5 21L44 15v18l-10.5-6z"/></symbol>
+    <symbol id="i-crown" viewBox="0 0 48 48"><path fill="currentColor" d="M6 16l9 9 9-15 9 15 9-9-4 22H10z"/><rect x="10" y="38" width="28" height="5" rx="1.5" fill="currentColor"/><circle cx="24" cy="8" r="3" fill="currentColor"/></symbol>
+    <symbol id="orn-line" viewBox="0 0 240 24"><g fill="url(#foil)"><path d="M0 12.6h92l4-1.2 4 1.2H0z" opacity=".9"/><path d="M240 12.6h-92l-4-1.2-4 1.2H240z" opacity=".9"/><path d="M120 2l3.2 6.6 7.2.9-5.3 5 1.4 7.2-6.5-3.5-6.5 3.5 1.4-7.2-5.3-5 7.2-.9z"/><circle cx="102" cy="12" r="2.4"/><circle cx="138" cy="12" r="2.4"/></g></symbol>
+  </defs>
+</svg>
