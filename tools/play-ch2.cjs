@@ -168,7 +168,7 @@ const { open } = require('./harness.cjs');
   await fast(1);
   await page.waitForTimeout(1000);
   await shot('palace-done');
-  await tp(0, 0, 5.6);
+  await ev(() => { const n = window.__nut, p = n.Toy.portal.position; n.player.pos.set(p.x, 0, p.z + 0.3); });
   await until(() => window.__nut.G.mode === 'clear', 120000, 'clear');
   await page.waitForTimeout(1500);
   await shot('clear');
