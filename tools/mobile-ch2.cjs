@@ -38,7 +38,7 @@ const { open } = require('./harness.cjs');
   await shot('build-hover');
   for (let i = 0; i < 4; i++) {
     if (await ev(() => !!window.__nut.TG.placed.base || window.__nut.Build.stage === 'snap')) break;
-    await page.tap('#btnRotL');
+    await page.tap('#btnRotL', { force: true }); // the button bounces while it waits, so skip the stability check
     await until(() => { const b = window.__nut.Build; return !b.busy || b.stage === 'snap'; }, 20000, 'rotate');
   }
   await until(() => !!window.__nut.TG.placed.base, 30000, 'base placed');
@@ -47,7 +47,7 @@ const { open } = require('./harness.cjs');
   console.log('placed by touch', await ev(() => JSON.stringify(window.__nut.TG.placed)));
   const ov = await ev(() => ({ sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth }));
   console.log('overflow', JSON.stringify(ov));
-  await page.tap('#btnBuildExit');
+  await page.tap('#btnBuildExit', { force: true });
   await until(() => window.__nut.G.mode === 'play', 20000, 'exit build');
   await page.waitForTimeout(1000);
   await shot('after-build');
