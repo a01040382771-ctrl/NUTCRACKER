@@ -2,11 +2,11 @@
 
 빈티지 유럽 동화책과 클래식 발레 무대를 섞은 3D 어드벤처예요. 클라라를 움직여 크리스마스 저택을 탐험하고, 장난감 왕국에서 흩어진 왕궁을 다시 조립해요.
 
-**플레이** (Claude Artifacts, 작성자 계정에서만 열려요)
-https://claude.ai/artifact/JvHJvzmGN7FMJ6s91Vqi1H
-
-**GitHub Pages** (저장소 설정에서 켠 뒤 열려요)
+**플레이 · GitHub Pages** (저장소 설정에서 켠 뒤 열려요, `main` 최신 버전)
 https://a01040382771-ctrl.github.io/NUTCRACKER/
+
+**Claude Artifacts** (작성자 계정에서만 열려요, 아직 제1장 버전)
+https://claude.ai/artifact/JvHJvzmGN7FMJ6s91Vqi1H
 
 ## 조작
 
