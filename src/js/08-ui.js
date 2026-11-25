@@ -13,14 +13,18 @@ const UI = {
     fairy: { name: '설탕 요정' },
     mouse: { name: '생쥐 보초' },
     soldier: { name: '장난감 병정' },
+    snowfairy: { name: '눈꽃 요정' },
   },
   init() {
     try { document.documentElement.style.setProperty('--paper', `url(${paperDataURL()})`); } catch (e) { /* no paper grain */ }
     if (DEVICE.touch) document.body.classList.add('touch');
-    $('helpText').textContent = DEVICE.touch
+    this.helpMain = DEVICE.touch
       ? '왼쪽 아래를 끌어서 이동 · 점프 버튼으로 그랑 제테 · 큰 금빛 버튼으로 살펴보기와 슬리퍼 던지기'
       : '이동 WASD·방향키 · 점프 Space · 살펴보기·슬리퍼 E 또는 Enter · 일시정지 Esc';
+    this.setHelp();
   },
+  /* the line of controls under the pause menu: a chapter may bring its own, empty text goes back to the walking controls */
+  setHelp(text) { $('helpText').textContent = text || this.helpMain; },
   show(id) { $(id).hidden = false; },
   hide(id) { $(id).hidden = true; },
   setLoading(p, text) { $('loadBar').style.width = `${Math.round(p * 100)}%`; if (text) $('loadText').textContent = text; },
@@ -78,9 +82,10 @@ const UI = {
     $('actLabel').textContent = label;
     $('btnAct').classList.toggle('ready', kind !== 'spin' && kind !== 'next');
   },
-  setChapterHud(no, title, icon) {
+  setChapterHud(no, title, icon, max = 12) {
     $('plNo').textContent = no; $('plTitle').textContent = title;
     $('cntUse').setAttribute('href', `#${icon}`); $('objUse').setAttribute('href', `#${icon}`);
+    $('cntMax').textContent = `/ ${max}`;
   },
   clearCard(o) {
     $('clrKicker').textContent = o.kicker; $('clrTitle').textContent = o.title;
@@ -92,10 +97,12 @@ const UI = {
     }
     $('clrUnlock').innerHTML = o.unlock;
     $('btnClearNext').hidden = !o.next;
+    $('btnClearNext').textContent = o.nextLabel || '다음 장으로 떠나기';
     $('btnClearMap').classList.toggle('primary', !o.next);
   },
-  chapterCard(no, title) {
+  chapterCard(no, title, onBright) {
     const c = $('chapterCard');
+    c.classList.toggle('bright', !!onBright); // a soft dark plate behind the words when the scene behind them is pale (snow)
     c.querySelector('.cc-no').textContent = no; c.querySelector('.cc-title').textContent = title;
     c.hidden = false; c.style.animation = 'none'; void c.offsetWidth; c.style.animation = '';
     setTimeout(() => { c.hidden = true; }, 3300);

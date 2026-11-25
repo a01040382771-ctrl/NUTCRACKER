@@ -145,22 +145,60 @@ const Toy = {
   },
 
   /* ---------- chapter flow ---------- */
-  async start() {
+  async start(resume = false) {
     RUN_ID++; Tasks.clear(); UI.closeDialog();
     ['screenTitle', 'screenMap', 'screenClear', 'screenPause', 'build'].forEach((id) => UI.hide(id));
     G.mode = 'loading'; G.locked = true;
     UI.hide('hud'); UI.hide('controls'); UI.prompt(null);
     Sound.stopMusic(0.6);
+    Snow.leave();
     const fresh = !this.W;
     if (fresh) await this.ensure(); else await UI.fade(1, 0.4);
     RUN_ID++;
     World.use(2);
     this.reset();
+    const cp = resume ? this.checkpoint() : null;
+    if (cp) this.restore(cp);
     G.mode = 'cutscene';
     const L = $('screenLoading');
     if (!L.hidden) { L.style.transition = 'opacity .8s ease'; L.style.opacity = '0'; setTimeout(() => { L.hidden = true; }, 820); }
     UI.fade(0, 1.0);
-    Story.run(() => this.intro());
+    Story.run(() => (cp ? this.resumeIntro() : this.intro()));
+  },
+
+  /* ---------- saving: a checkpoint every time a tier is finished ---------- */
+  checkpoint() {
+    const cp = Save.data.ch2;
+    return cp && cp.v === 1 && cp.tier >= 2 && cp.tier <= 4 ? cp : null;
+  },
+  saveCheckpoint() {
+    Save.data.ch2 = { v: 1, tier: TG.tier, time: Math.round(G.time), caught: TG.caught };
+    Save.write();
+  },
+  restore(cp) {
+    const W2 = this.W, tier = cp.tier;
+    TG.tier = tier; TG.caught = cp.caught | 0; TG.gift = true; TG.crane = tier >= 3 ? 1 : 0; TG.buildTut = false;
+    G.time = +cp.time || 0;
+    // every piece of the finished tiers is already standing on the dais
+    for (const def of PIECES) {
+      if (def.tier >= tier) continue;
+      const pc = this.pieces[def.id];
+      TG.found[def.id] = true; pc.rot = 0; pc.ride = null; Build.place(pc);
+    }
+    W2.gates.forEach((g, i) => g.set(i < tier - 1 ? 1 : 0));
+    const gp = W2.props.gift; gp.lid.position.set(0.9, 0.22, 0.5); gp.lid.rotation.set(0.2, 1.1, -1.75);
+    if (tier >= 3) { const Cr = W2.crane; Cr.jib.rotation.y = -Math.PI / 2; Cr.len = 1.3; Cr.stick.rotation.z = -0.9; }
+    TG.gateMark = tier - 2; TG.gateMarkT = 12;
+    UI.setStars(Object.keys(TG.found).length);
+    this.updateGhosts();
+    renderer.shadowMap.needsUpdate = true;
+  },
+  async resumeIntro() {
+    Sound.playMusic('toys');
+    Cam.set([3.6, 6.2, TOY.start.z + 9.5], [0.4, 1.6, TOY.start.z - 1]);
+    await guard(Cam.to([2.8, 2.8, TOY.start.z + 4.2], [0.4, 1.25, TOY.start.z - 0.2], 1.5));
+    this.beginExplore();
+    UI.toast(`저장된 곳에서 이어서 시작해요 · 제${TG.tier}단계`, 3200);
   },
   leave() {
     if (!this.W) return;
@@ -604,6 +642,8 @@ const Toy = {
     G.phase = 'explore';
     this.updateGhosts(); this.objective();
     Sound.playMusic('toys');
+    this.saveCheckpoint();
+    UI.toast('여기까지 진행을 저장했어요', 2600);
   },
   async finale() {
     await Story.cut(async () => {
@@ -670,11 +710,12 @@ const Toy = {
     const prev = Save.data.done.toys;
     Save.data.done.toys = { pieces: Object.keys(TG.placed).length, time: G.time, caught: TG.caught, best: prev ? Math.min(prev.best || prev.time, G.time) : G.time };
     Save.data.unlocked = Math.max(Save.data.unlocked, 3);
+    delete Save.data.ch2;
     Save.write();
     UI.clearCard({
       kicker: '제2장 · 이야기 끝', title: '장난감 왕국', icon: 'i-castle',
       stats: [['맞춘 조각', `${Object.keys(TG.placed).length} / 12`], ['걸린 시간', fmtTime(G.time)], ['들킨 횟수', String(TG.caught)]],
-      unlock: '<b>제3장 · 눈송이의 숲</b>이 열렸어요!<br><span>다음 무대는 지금 정성껏 꾸미고 있어요.</span>', next: false,
+      unlock: '<b>제3장 · 눈송이의 숲</b>이 열렸어요!<br><span>눈송이 왈츠에 맞춰 숲길을 열어 주세요.</span>', next: true, nextLabel: '제3장으로 떠나기',
     });
     UI.show('screenClear');
   },

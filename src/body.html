@@ -9,7 +9,7 @@
       <div class="objective" id="objective"><svg class="obj-ico" aria-hidden="true"><use id="objUse" href="#i-star"/></svg><span id="objText"></span></div>
     </div>
     <div class="hud-right">
-      <div class="counter" id="starCounter" aria-label="모은 개수"><svg class="ico" aria-hidden="true"><use id="cntUse" href="#i-star"/></svg><b id="starNum">0</b><span>/ 12</span></div>
+      <div class="counter" id="starCounter" aria-label="모은 개수"><svg class="ico" aria-hidden="true"><use id="cntUse" href="#i-star"/></svg><b id="starNum">0</b><span id="cntMax">/ 12</span></div>
       <button class="medal small" id="btnPause" aria-label="일시정지"><svg aria-hidden="true"><use href="#i-pause"/></svg></button>
     </div>
   </div>
@@ -38,6 +38,11 @@
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- rhythm lanes (chapter III) -->
+  <div id="rhythm" hidden>
+    <div class="rh-field" id="rhField"><canvas id="rhCv" aria-label="눈송이 리듬 레인"></canvas></div>
   </div>
 
   <!-- touch controls -->
@@ -96,7 +101,7 @@
         <div class="pg-art" id="mapArt"><img id="mapImg" alt=""><div class="pg-art-ico" id="mapArtIco"><svg aria-hidden="true"><use id="mapArtUse" href="#i-house"/></svg></div><div class="lock-veil" id="mapLock" hidden><svg aria-hidden="true"><use href="#i-lock"/></svg><span id="mapLockText"></span></div></div>
         <p class="pg-desc" id="mapDesc"></p>
         <div class="pg-stats" id="mapStats"></div>
-        <button class="btn primary" id="btnPlayChapter">이야기 펼치기</button>
+        <div class="pg-actions"><button class="btn primary" id="btnContinue" hidden>이어하기</button><button class="btn primary" id="btnPlayChapter">이야기 펼치기</button></div>
       </div>
       <div class="page right">
         <div class="toc-head">차례</div>

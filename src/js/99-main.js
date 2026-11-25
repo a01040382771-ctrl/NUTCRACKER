@@ -33,6 +33,7 @@ function resize() {
   camera.fov = aspect >= 1 ? 42 : lerp(58, 44, clamp((aspect - 0.45) / 0.55, 0, 1));
   Cam.zoom = aspect >= 1.2 ? 1 : aspect >= 1 ? 1.05 : 1 + (1 - aspect) * 0.62;
   camera.updateProjectionMatrix();
+  Snow.applyView();
   const v = new THREE.Vector2(); renderer.getDrawingBufferSize(v);
   FX.uniforms.uScale.value = v.y / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2));
 }
@@ -142,6 +143,7 @@ function gameUpdate(dt) {
     }
   }
   if (G.mode === 'play' || G.mode === 'cutscene') G.time += G.mode === 'play' ? dt : 0;
+  if (G.chapter === 3) { Snow.update(dt); return; }
   if (G.chapter === 2) {
     Toy.prePhysics(dt);
     updatePlayer(dt);
@@ -221,7 +223,7 @@ async function boot(hot) {
   await new Promise((r) => setTimeout(r, 250));
   Story.toTitle(true);
   window.__nut = {
-    G, player, Cam, Story, Input, UI, comp, K, Tasks, mice, soldiers, flags, Perf, DEBUG, applyMood, setQuality, spawnMouse, killMouse, hitKing, throwSlipper, Toy, Build, TG, World, Save, Sound,
+    G, player, Cam, Story, Input, UI, comp, K, Tasks, mice, soldiers, flags, Perf, DEBUG, applyMood, setQuality, spawnMouse, killMouse, hitKing, throwSlipper, Toy, Build, TG, World, Save, Sound, Snow, Rhythm, SNOW_CFG,
     get W() { return W; }, get clara() { return clara; }, get nut() { return nut; }, get king() { return king; }, get prince() { return prince; },
     get fairyBig() { return fairyBig; }, get portal() { return portal; }, get magicSnow() { return magicSnow; }, get starSet() { return starSet; }, get renderer() { return renderer; }, get camera() { return camera; }, get scene() { return scene; },
   };

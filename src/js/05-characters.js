@@ -9,8 +9,9 @@ function buildDoll(kind) {
     clara: { dress: '#f2bccb', dress2: '#f8d8df', trim: '#fdf6ea', sash: '#8a2140', hair: '#6c3a21', hair2: '#8f5634', legs: '#fbf6f1', shoe: '#efb0c0', hip: 0.5, legLen: 0.31, face: TEX.faceClara },
     fairy: { dress: '#f3b3c7', dress2: '#fde0e8', trim: '#fff8fb', sash: '#e2bb69', hair: '#d9a75c', hair2: '#f1cf8c', legs: '#f6d8de', shoe: '#f1b6c6', hip: 0.6, legLen: 0.41, face: TEX.faceFairy },
     prince: { dress: '#f7efe1', dress2: '#e7d7bb', trim: '#d9b05c', sash: '#a9c8ea', hair: '#9a6235', hair2: '#c08a52', legs: '#f7f1e8', shoe: '#7d1d36', hip: 0.6, legLen: 0.4, face: TEX.facePrince },
+    snowfairy: { dress: '#bcd8f4', dress2: '#e8f2fd', trim: '#ffffff', sash: '#8db5e6', hair: '#cdd9ee', hair2: '#f1f6fd', legs: '#e8f0fa', shoe: '#b6cde9', hip: 0.6, legLen: 0.41, face: TEX.faceFairy, bodice: '#9cc0ea', accent: '#a9cdf2', gem: '#ffffff', metal: '#dbe6f5', metal2: '#f1f7ff', crown: '#8fd2ff' },
   }[kind];
-  const isClara = kind === 'clara', isFairy = kind === 'fairy', isPrince = kind === 'prince';
+  const isClara = kind === 'clara', isFairy = kind === 'fairy' || kind === 'snowfairy', isPrince = kind === 'prince';
   const root = new THREE.Group();
   const body = new THREE.Group(); body.position.y = C.hip; root.add(body);
   const skin = PAL.skin;
@@ -38,7 +39,7 @@ function buildDoll(kind) {
       deform(g, (v) => { const a = Math.atan2(v.x, v.z), r = Math.hypot(v.x, v.z), w = smoothstep(0.15, R, r); v.y += w * 0.022 * Math.sin(a * 22 + L * 2); const k = 1 + w * 0.03 * Math.sin(a * 31 + L); v.x *= k; v.z *= k; });
       sk.add(g, (x, y, z) => { const r = Math.hypot(x, z); return new THREE.Color(L === 2 ? C.dress : C.dress2).lerp(new THREE.Color(C.trim), smoothstep(0.3, 0.55, r) * 0.6); });
     }
-    for (let i = 0; i < 26; i++) { const a = (i / 26) * TAU, r = rnd(0.22, 0.44); sk.add(GEO.sph(6, 4), i % 3 ? '#f6d68a' : '#ffffff', TRS(Math.sin(a) * r, 0.17, Math.cos(a) * r, 0, 0, 0, 0.012)); }
+    for (let i = 0; i < 26; i++) { const a = (i / 26) * TAU, r = rnd(0.22, 0.44); sk.add(GEO.sph(6, 4), i % 3 ? (C.gem || '#f6d68a') : '#ffffff', TRS(Math.sin(a) * r, 0.17, Math.cos(a) * r, 0, 0, 0, 0.012)); }
   } else {
     const g = lathe([[0.0, 0.08], [0.165, 0.08], [0.18, 0.0], [0.205, -0.1], [0.215, -0.135], [0.0, -0.12]], 36, 12);
     deform(g, (v) => { const a = Math.atan2(v.x, v.z); if (v.y < 0.02) { const k = 1 + 0.03 * Math.sin(a * 10); v.x *= k; v.z *= k; } });
@@ -63,15 +64,15 @@ function buildDoll(kind) {
     bd.add(collar, C.trim, TRS(0, 0.515, 0));
     for (let i = 0; i < 3; i++) bd.add(GEO.sph(8, 6), '#e3b565', TRS(0, 0.31 + i * 0.055, 0.145 - i * 0.002, 0, 0, 0, 0.013));
   } else if (isFairy) {
-    bd.add(lathe([[0.0, 0.2], [0.11, 0.2], [0.118, 0.28], [0.135, 0.36], [0.14, 0.42], [0.125, 0.455], [0.0, 0.46]], 28, 14), shade('#e58ba6', 0.06));
+    bd.add(lathe([[0.0, 0.2], [0.11, 0.2], [0.118, 0.28], [0.135, 0.36], [0.14, 0.42], [0.125, 0.455], [0.0, 0.46]], 28, 14), shade(C.bodice || '#e58ba6', 0.06));
     const tr = new THREE.TorusGeometry(0.128, 0.012, 6, 30); tr.rotateX(Math.PI / 2);
     bd.add(tr, C.sash, TRS(0, 0.452, 0, 0, 0, 0, 1, 1, 1.04));
-    for (let i = 0; i < 4; i++) bd.add(GEO.sph(8, 6), i % 2 ? '#ffffff' : '#f5cf7c', TRS(0, 0.25 + i * 0.05, 0.12 + i * 0.006, 0, 0, 0, 0.014));
+    for (let i = 0; i < 4; i++) bd.add(GEO.sph(8, 6), i % 2 ? '#ffffff' : (C.gem || '#f5cf7c'), TRS(0, 0.25 + i * 0.05, 0.12 + i * 0.006, 0, 0, 0, 0.014));
     bd.add(GEO.cyl(14), skin, TRS(0, 0.49, 0, 0, 0, 0, 0.046, 0.08, 0.046));
     bd.add(GEO.sph(14, 10), skin, TRS(0, 0.452, 0, 0, 0, 0, 0.13, 0.04, 0.1));
     const neck = new THREE.TorusGeometry(0.05, 0.007, 6, 24); neck.rotateX(Math.PI / 2.2);
-    bd.add(neck, '#e8c070', TRS(0, 0.5, 0.012));
-    bd.add(GEO.sph(8, 6), '#f19bb3', TRS(0, 0.475, 0.055, 0, 0, 0, 0.014));
+    bd.add(neck, C.metal || '#e8c070', TRS(0, 0.5, 0.012));
+    bd.add(GEO.sph(8, 6), C.accent || '#f19bb3', TRS(0, 0.475, 0.055, 0, 0, 0, 0.014));
   } else {
     bd.add(lathe([[0.0, 0.08], [0.165, 0.08], [0.17, 0.2], [0.19, 0.34], [0.2, 0.43], [0.16, 0.49], [0.07, 0.53], [0.0, 0.535]], 28, 16), shade(C.dress, 0.04));
     const belt = new THREE.TorusGeometry(0.168, 0.02, 6, 32); belt.rotateX(Math.PI / 2);
@@ -140,9 +141,9 @@ function buildDoll(kind) {
     for (const s of [-1, 1]) hb.add(GEO.sph(12, 8), hairCol, TRS(s * 0.19, 0.02, 0.1, 0, 0, s * 0.3, 0.07, 0.1, 0.06));
     // tiara
     const tg = new THREE.TorusGeometry(0.2, 0.012, 6, 30, Math.PI * 0.9);
-    hb.add(tg, '#e8c070', TRS(0, 0.16, 0.04, -0.75, 0, Math.PI * 0.05));
-    for (let i = 0; i < 7; i++) { const a = lerp(0.35, Math.PI - 0.35, i / 6); hb.add(GEO.cone(6), '#f0d080', TRS(Math.cos(a) * 0.2, 0.16 + Math.sin(a) * 0.2 * 0.73, 0.04 + Math.sin(a) * 0.2 * 0.68, -0.75 + Math.PI * 0.0, 0, Math.cos(a) * -0.9, 0.018, i === 3 ? 0.09 : 0.05, 0.018)); }
-    hb.add(GEO.sph(10, 8), '#f28aa8', TRS(0, 0.33, 0.17, 0, 0, 0, 0.026));
+    hb.add(tg, C.metal || '#e8c070', TRS(0, 0.16, 0.04, -0.75, 0, Math.PI * 0.05));
+    for (let i = 0; i < 7; i++) { const a = lerp(0.35, Math.PI - 0.35, i / 6); hb.add(GEO.cone(6), C.metal2 || '#f0d080', TRS(Math.cos(a) * 0.2, 0.16 + Math.sin(a) * 0.2 * 0.73, 0.04 + Math.sin(a) * 0.2 * 0.68, -0.75 + Math.PI * 0.0, 0, Math.cos(a) * -0.9, 0.018, i === 3 ? 0.09 : 0.05, 0.018)); }
+    hb.add(GEO.sph(10, 8), C.crown || '#f28aa8', TRS(0, 0.33, 0.17, 0, 0, 0, 0.026));
   } else {
     hb.add(new THREE.SphereGeometry(0.27, 30, 18, 0, TAU, 0, 1.68), hairCol, TRS(0, 0.006, -0.014, -0.32, 0, 0));
     hb.add(GEO.sph(12, 10), hairCol, TRS(0.04, 0.2, 0.15, -0.4, 0, -0.3, 0.13, 0.07, 0.1));
@@ -168,7 +169,7 @@ function buildDoll(kind) {
       ab.add(GEO.capsule(0.05, 0.14, 4, 10), C.dress, TRS(0, -0.1, 0));
       ab.add(GEO.torus(0.045, 0.014, 6, 18), C.trim, TRS(0, -0.19, 0, Math.PI / 2, 0, 0));
     } else {
-      ab.add(GEO.torus(0.036, 0.008, 6, 16), '#e8c070', TRS(0, -0.1, 0, Math.PI / 2, 0, 0));
+      ab.add(GEO.torus(0.036, 0.008, 6, 16), C.metal || '#e8c070', TRS(0, -0.1, 0, Math.PI / 2, 0, 0));
     }
     ab.add(GEO.capsule(0.031, 0.13, 4, 10), skin, TRS(0, isPrince ? -0.06 : -0.12, 0, 0, 0, 0, isPrince ? 0.8 : 1));
     const upper = ab.build();
@@ -210,8 +211,8 @@ function buildDoll(kind) {
   let wand = null, wings = null;
   if (isFairy) {
     const wb = new Batch(MAT.gold);
-    wb.add(GEO.cyl(8), '#e8c070', TRS(0, 0.18, 0, 0, 0, 0, 0.008, 0.36, 0.008));
-    wb.add(starGeo(0.06, 0.026, 0.02, 0.012), '#ffe08a', TRS(0, 0.38, 0, 0, 0, 0));
+    wb.add(GEO.cyl(8), C.metal || '#e8c070', TRS(0, 0.18, 0, 0, 0, 0, 0.008, 0.36, 0.008));
+    wb.add(starGeo(0.06, 0.026, 0.02, 0.012), C.metal2 || '#ffe08a', TRS(0, 0.38, 0, 0, 0, 0));
     wand = wb.build();
     wand.position.set(0, -0.19, 0.02); wand.rotation.x = 0.3;
     armR.el.add(wand);
@@ -250,7 +251,7 @@ function updateDoll(d, dt, speed, grounded, vy) {
   if (a.walk > 0.03) a.phase += dt * (4.5 + 7.5 * a.walk);
   const s = Math.sin(a.phase);
   const W = a.walk * (1 - a.air), A = a.air;
-  const fairy = d.kind === 'fairy', prince = d.kind === 'prince';
+  const fairy = d.kind === 'fairy' || d.kind === 'snowfairy', prince = d.kind === 'prince';
   // rest pose
   let by = C.hip + Math.sin(a.t * 2.1) * 0.006, lean = 0, twist = 0, roll = 0;
   let lsx = -0.12, lsz = 0.2, rsx = -0.12, rsz = -0.2, lel = -0.45, rel = -0.45, llx = 0, rlx = 0, llz = 0, rlz = 0;
