@@ -94,6 +94,7 @@ const Story = {
   },
   /* the "next chapter" button on a clear card: chapter I → II (resumable), chapter II → III */
   clearNext() {
+    if (G.chapter === 3) { Snow.retry(); return; }   // only the try-again card has a next button in chapter III
     if (G.chapter === 2) Snow.start();
     else if (Toy.checkpoint()) { this.toTitle(); this.mapSel = 1; this.openMap(); }
     else Toy.start();

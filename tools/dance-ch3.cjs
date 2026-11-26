@@ -11,14 +11,14 @@ const fs = require('fs');
   const toFinale = async (rate) => {
     await ev(() => { const n = window.__nut; n.Save.data.unlocked = 3; n.DEBUG.timeScale = 4; n.Snow.start(); });
     await until(() => window.__nut.G.phase === 'rhythm' && window.__nut.G.mode === 'play', 300000, 'rhythm');
-    await ev((r) => { const n = window.__nut; n.Rhythm.stop(); n.DanceMusic.rate = r; n.Story.run(() => n.Snow.finale()); }, rate);
+    await ev((r) => { const n = window.__nut; n.Rhythm.stop(); n.DanceMusic.rate = r; for (let i = 0; i < 35; i++) n.Snow.setOpen(i, 1); n.Snow.hits = 35; n.Story.run(() => n.Snow.finale()); }, rate);   // rhythm part skipped: 35 caught, the gate needs 30
   };
 
   /* 1. the snow fairy's invitation comes first, then the dance: before the finale's spin, path and gate */
   await toFinale(1);   // real speed: the waltz is checked as it sounds
   await until(() => window.__nut.G.phase === 'finale' && window.__nut.UI.dlg.open, 300000, 'invitation');
   const inv = await ev(() => { const n = window.__nut; return { phase: n.G.phase, gate: n.Snow.W.gate.open, swept: n.Snow.goal.filter((g) => g === 1).length, speaker: document.getElementById('dlgName') ? document.getElementById('dlgName').textContent : '', dancing: n.Dance.active }; });
-  ok('order: after the rhythm the fairy invites everyone, the gate still closed and the finale sweep not yet run', inv.gate === 0 && inv.swept === 0 && !inv.dancing, inv);
+  ok('order: after the rhythm the fairy invites everyone, the gate still closed and the finale sweep not yet run', inv.gate === 0 && inv.swept < 49 && !inv.dancing, inv);
   await until(() => window.__nut.Dance.running, 300000, 'dance running');
   await ev(() => { window.__nut.DEBUG.timeScale = 1; });
   const st = await ev(() => { const n = window.__nut, D = n.Dance; return { phase: n.G.phase, mode: n.G.mode, src: n.DanceMusic.source, clock: n.DanceMusic.clock, bars: n.DanceMusic.bars.length - 1, sections: n.DanceMusic.sectionBars, n: D.n, corps: n.Corps.group.visible, fx: D.fx.root.visible, skip: !document.getElementById('danceSkip').hidden, gate: n.Snow.W.gate.open, parts: n.Corps.inst.length, triPerDancer: n.Corps.triangles() }; });

@@ -4649,6 +4649,7 @@ const Story = {
   },
   /* the "next chapter" button on a clear card: chapter I → II (resumable), chapter II → III */
   clearNext() {
+    if (G.chapter === 3) { Snow.retry(); return; }   // only the try-again card has a next button in chapter III
     if (G.chapter === 2) Snow.start();
     else if (Toy.checkpoint()) { this.toTitle(); this.mapSel = 1; this.openMap(); }
     else Toy.start();
@@ -7423,6 +7424,7 @@ const SNOW_CFG = {
   minGapSec: 0.3,     // the chart drops notes that would follow the previous one more closely than this
   countInBeats: 3,    // beats of "3 · 2 · 1" before the first snowflake
   tailSec: 1.4,       // quiet time after the last note before the finale starts
+  gateNeed: 30,       // snowflakes caught (perfect and good each count 1) before the gate opens; fewer and the gate stays shut: try again
   clock: {
     useOutputLatency: true, // judge against what the player hears (AudioContext.outputLatency, when the browser reports it)
     inputOffsetSec: 0,      // manual calibration: positive if taps feel late, negative if early
@@ -8182,7 +8184,7 @@ function portraitOf(obj, look, dist) {
 
 const Snow = {
   W: null, fog: null, bg: null, shot: '', loading: null, fairy: null, blob: null, N: 0,
-  fs: 0, goalS: 0, sp: 0, goal: [], cur: [], lampOn: [], opened: 0, perfectRun: 0, followCam: false, viewK: 0, pct: 0, final: null,
+  fs: 0, goalS: 0, sp: 0, goal: [], cur: [], lampOn: [], opened: 0, perfectRun: 0, followCam: false, viewK: 0, pct: 0, final: null, hits: 0,
 
   /* ---------- build the stage once, the first time the chapter opens ---------- */
   ensure() {
@@ -8258,7 +8260,7 @@ const Snow = {
     Rhythm.stop();
     Dance.reset();
     this.goal = new Array(N).fill(0); this.cur = new Array(N).fill(0); this.lampOn = new Array(W3.lampTile.length).fill(false);
-    this.opened = 0; this.perfectRun = 0; this.final = null; this.pct = 0; this.sp = 0; this.shown = 0; this.holdActors = false;
+    this.opened = 0; this.perfectRun = 0; this.final = null; this.pct = 0; this.sp = 0; this.shown = 0; this.holdActors = false; this.hits = 0;
     W3.resetPath();
     this.fs = this.goalS = W3.lead + 0.3;
     this.followCam = false; this.setView(0);
@@ -8318,8 +8320,9 @@ const Snow = {
     UI.show('rhythm');
     this.followCam = true; Cam.mode = 'free';
     tween(0.7, (k) => this.setView(k), Ease.inOut);
-    UI.setObjective(`숲길을 열고 있어요 · 0 / ${this.N}`);
-    UI.hint(DEVICE.touch ? '눈송이가 빛나는 원에 닿을 때 그 줄을 눌러요' : `눈송이가 빛나는 원에 닿을 때 ${this.keyHint()} 키 (또는 화면 터치)`, 5200);
+    UI.setObjective(this.objectiveText(0));
+    const goal = `눈송이 ${SNOW_CFG.gateNeed}개를 모으면 문이 열려요`;
+    UI.hint(DEVICE.touch ? `눈송이가 빛나는 원에 닿을 때 그 줄을 눌러요 · ${goal}` : `눈송이가 빛나는 원에 닿을 때 ${this.keyHint()} 키 (또는 화면 터치) · ${goal}`, 5200);
     await Rhythm.start({ onJudge: (n, r) => this.onJudge(n, r), onEnd: () => Story.run(() => this.finale()) });
   },
 
@@ -8332,6 +8335,7 @@ const Snow = {
   tilePos(i, out) { const t = this.W.tile[i]; return out.set(t.x, 0, t.z); },
   onJudge(n, rating) {
     const i = n.i, p = this.tilePos(i, _sa);
+    if (rating !== 'miss') this.hits++;
     if (rating === 'perfect') {
       this.setOpen(i, 1); this.perfectRun++;
       this.W.setPrints(i, true);
@@ -8346,8 +8350,8 @@ const Snow = {
       puff(p.x, 0.3, p.z, { n: 4, size: 0.5, colors: ['#e8f0ff', '#ffffff'] });
     }
     this.goalS = this.W.sTile(i);
-    UI.setObjective(`숲길을 열고 있어요 · ${Math.round(this.opened)} / ${this.N}`, false);
-    const shown = Math.round(this.opened);
+    const shown = this.caught();
+    UI.setObjective(this.objectiveText(shown), false);
     if (shown !== this.shown) { this.shown = shown; UI.setStars(shown); }
   },
 
@@ -8424,6 +8428,7 @@ const Snow = {
     UI.hide('rhythm'); $('hud').classList.add('cine'); UI.prompt(null);
     this.pct = Math.round((this.opened / N) * 100);
     const st = Rhythm.stats; this.final = { perfect: st.perfect, good: st.good, miss: st.miss };
+    if (!this.passes()) return this.shortOfGate();   // not enough snowflakes: the gate stays shut
     tween(0.8, (k) => this.setView(1 - k), Ease.inOut);
     // 1. as the waltz fades, the snow fairy invites everyone to the clearing before the gate
     DanceMusic.preload();   // a recording kept on this device starts decoding now, while she speaks
@@ -8455,7 +8460,6 @@ const Snow = {
       const upto = Math.floor(k * N);
       while (sweep <= upto && sweep < N) { if (this.goal[sweep] < 1) this.setOpen(sweep, 1); sweep++; }
     }, Ease.linear));
-    UI.setStars(N);
     await guard(UI.say('narrator', '눈송이들이 다시 눈발이 되어 흩날리자, 숲길 끝까지 환한 등불이 줄지어 켜졌어요.'));
     const gc = this.toWorld(-5.5, 3.0, -11, _sb).clone(), gl = this.toWorld(0, 2.6, 0, _sc).clone();
     await guard(Cam.to([gc.x, gc.y, gc.z], [gl.x, gl.y, gl.z], 1.5));
@@ -8478,6 +8482,44 @@ const Snow = {
     this.shot = this.snapshot();
     await guard(UI.fade(0, 1.0));
     this.clear();
+  },
+  /* ---------- the gate: enough snowflakes caught (a perfect and a good one each count one) ---------- */
+  caught() { return this.hits; },
+  passes() { return this.caught() >= SNOW_CFG.gateNeed; },
+  objectiveText(shown) {
+    const need = SNOW_CFG.gateNeed;
+    return shown >= need ? `문이 열릴 만큼 모았어요 · ${shown}개` : `숲길을 열고 있어요 · ${shown} / ${need}개면 문이 열려요`;
+  },
+  /* not enough: the fairy says so, the gate stays shut, and the result card offers another try */
+  async shortOfGate() {
+    const need = SNOW_CFG.gateNeed, caught = this.caught(), N = this.N, st = this.final;
+    tween(0.8, (k) => this.setView(1 - k), Ease.inOut);
+    const gc = this.toWorld(-5.5, 3.0, -11, _sb).clone(), gl = this.toWorld(0, 2.6, 0, _sc).clone();
+    await guard(Cam.to([gc.x, gc.y, gc.z], [gl.x, gl.y, gl.z], 1.4));
+    await guard(UI.say('snowfairy', `아, 눈송이가 ${caught}개뿐이네요. 문을 열려면 ${need}개를 모아야 해요.`));
+    await guard(UI.say('snowfairy', '괜찮아요. 눈은 다시 내려와요. 한 번 더 해 볼까요?'));
+    G.mode = 'clear'; G.locked = true;
+    UI.hide('hud'); UI.hide('rhythm');
+    UI.clearCard({
+      kicker: '제3장 · 다시 시도', title: '눈송이의 숲', icon: 'i-snow',
+      stats: [['모은 눈송이', `${caught} / ${need}`], ['정확한 눈송이', `${st.perfect} / ${N}`], ['좋음 · 놓침', `${st.good} · ${st.miss}`]],
+      unlock: `<b>문을 열려면 눈송이 ${need}개</b>가 필요해요.<br><span>${Math.max(1, need - caught)}개만 더 모으면 돼요.</span>`, next: true, nextLabel: '다시 시도',
+    });
+    UI.show('screenClear');
+  },
+  /* the same song again, from the start: the path is snowed in again and the counter is back to zero */
+  retry() {
+    if (!this.W) return;
+    RUN_ID++; Tasks.clear(); UI.closeDialog();
+    ['screenClear', 'screenPause', 'screenMap', 'screenTitle'].forEach((id) => UI.hide(id));
+    this.reset();
+    this.fairy.root.visible = true; this.blob.visible = true;
+    G.mode = 'cutscene'; G.locked = true;
+    UI.fade(0, 0.6);
+    Story.run(async () => {
+      await guard(UI.say('snowfairy', '좋아요, 눈은 다시 내려와요. 이번에는 박자에 맞춰 눈송이를 모아 주세요!'));
+      await this.beginRhythm();
+    });
   },
   clear() {
     const N = this.N, fin = this.final || { perfect: 0, good: 0, miss: 0 };

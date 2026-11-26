@@ -19,6 +19,7 @@ const SNOW_CFG = {
   minGapSec: 0.3,     // the chart drops notes that would follow the previous one more closely than this
   countInBeats: 3,    // beats of "3 · 2 · 1" before the first snowflake
   tailSec: 1.4,       // quiet time after the last note before the finale starts
+  gateNeed: 30,       // snowflakes caught (perfect and good each count 1) before the gate opens; fewer and the gate stays shut: try again
   clock: {
     useOutputLatency: true, // judge against what the player hears (AudioContext.outputLatency, when the browser reports it)
     inputOffsetSec: 0,      // manual calibration: positive if taps feel late, negative if early
