@@ -10,14 +10,14 @@ const SWEET_CFG = {
 
   /* 스페인 춤 · 초콜릿 — the dancer plays a pattern of castanets (딱) and stamps (쿵); the player plays it back */
   choco: {
-    bpm: 138, beatsPerBar: 3,   // a lively waltz-time dance; patterns sit on the eighth-note grid (6 slots a bar)
-    introBars: 2,               // guitar bars before the first pattern
-    windows: { perfect: 0.075, good: 0.16 },   // seconds either side of a note
-    /* 12 slots = 2 bars: C castanets · S stamp · . rest ('|' only for reading) */
-    patterns: ['C.C.C.|......', 'S...S.|C.C...', 'C.C.S.|C.C.S.', 'CCC.S.|S.C.C.', 'S.CCS.|CCC.S.', 'CCC.S.|CCC.SS'],
-    ghostRounds: 2,             // the first rounds show the pattern faintly while the player answers
-    allowFrom: 6,               // patterns with this many notes or more forgive one slip (a miss, a wrong pad or a stray tap)
-    passRounds: 4,              // patterns played back cleanly before the rehearsal counts as done
+    bpm: 88, beatsPerBar: 3,    // a slow, easy waltz-time dance; patterns sit on the eighth-note grid (6 slots a bar)
+    introBars: 1,               // guitar bars before the first pattern
+    windows: { perfect: 0.11, good: 0.24 },    // seconds either side of a note
+    /* The dancer plays a pattern, then the player plays it back; the dancer's pattern stays on screen the whole time.
+       6 slots = 1 bar (played in one bar, answered in the next), 12 slots = 2 bars: C castanets · S stamp · . rest ('|' only for reading) */
+    patterns: ['C.C.C.', 'S.C.C.', 'S.C.C.|S.C.C.', 'C.C.S.|C.C.S.', 'S.CCC.|S.C.S.', 'S.CCC.|S.CCS.'],
+    forgive: 1,                 // slips forgiven in every pattern (a miss, a wrong pad or a stray tap)
+    passRounds: 4,              // patterns played back before the rehearsal counts as done
     keys: { stomp: ['KeyA', 'KeyF', 'ArrowLeft'], cast: ['KeyD', 'KeyJ', 'ArrowRight'] },
   },
 

@@ -66,17 +66,19 @@ const ChocoGame = {
   get bpm() { return SWEET_CFG.choco.bpm; },
   prepare(R) {
     const C = SWEET_CFG.choco, bar = R.spb * C.beatsPerBar, slot = R.spb / 2;
-    this.bar = bar; this.slot = slot; this.win = C.windows;
+    this.bar = bar; this.slot = slot; this.win = C.windows; this.forgive = C.forgive;
+    let t = C.introBars * bar;   // a pattern of one bar is played and answered in two bars, a pattern of two bars in four
     this.rounds = C.patterns.map((p, r) => {
       const s = p.replace(/[^CS.]/g, ''), notes = [];
       for (let i = 0; i < s.length; i++) if (s[i] !== '.') notes.push({ slot: i, type: s[i] === 'C' ? 'cast' : 'stomp' });
-      const callT = (C.introBars + r * 4) * bar, respT = callT + 2 * bar;
+      const slots = s.length, bars = Math.max(1, Math.round(slots / 6)), callT = t, respT = callT + bars * bar, endT = respT + bars * bar;
+      t = endT;
       return {
-        r, notes, callT, respT, endT: respT + 2 * bar, ghost: r < C.ghostRounds, allow: notes.length >= C.allowFrom ? 1 : 0,
+        r, notes, slots, bars, callT, respT, endT,
         resp: notes.map((n) => ({ slot: n.slot, type: n.type, t: respT + n.slot * slot, state: 'wait' })), taps: [], cue: 0, miss: 0, wrong: 0, stray: 0, done: false, ok: false,
       };
     });
-    this.outroT = (C.introBars + this.rounds.length * 4) * bar;
+    this.outroT = t;
     this.endT = this.outroT + 2 * bar;
     this.cur = 0; this.ok = 0; this.label = null; this.pad = [-9, -9]; this.free = [];
     this.stats = { perfect: 0, good: 0, miss: 0, wrong: 0, stray: 0 };
@@ -90,11 +92,11 @@ const ChocoGame = {
       ev.push({ t: t + 2 * spb, kind: 'strum', notes: notes.slice(2), vol: 0.068 * accent, spread: 0.01, dur: 0.45 });
       ev.push({ t, kind: 'pluck', f: noteFreq(notes[0]), dur: bar * 0.9, vol: 0.2 });
     };
-    strumBar(0, 'Am'); strumBar(1, 'E');
-    ev.push(...R.melody('E5:1 F5:0.5 E5:0.5 D5:1 | C5:0.5 B4:0.5 G#4:1 E4:1', 0, 'guit', 0.09, { legato: 1.4 }));
+    for (let b = 0; b < C.introBars; b++) strumBar(b, b === C.introBars - 1 ? 'E' : 'Am');
+    ev.push(...R.melody(C.introBars >= 2 ? 'E5:1 F5:0.5 E5:0.5 D5:1 | C5:0.5 B4:0.5 G#4:1 E4:1' : 'E5:1 D5:0.5 C5:0.5 B4:1', 0, 'guit', 0.09, { legato: 1.4 }));
     this.rounds.forEach((rd) => {
-      const b0 = rd.callT / bar;
-      ['Am', 'G', 'F', 'E'].forEach((ch, k) => strumBar(b0 + k, ch, k < 2 ? 0.8 : 1));
+      const b0 = rd.callT / bar, prog = rd.bars === 1 ? ['Am', 'E'] : ['Am', 'G', 'F', 'E'];   // the Andalusian cadence, shortened for a pattern of one bar
+      prog.forEach((ch, k) => strumBar(b0 + k, ch, k < prog.length / 2 ? 0.8 : 1));
       for (const n of rd.notes) ev.push({ t: rd.callT + n.slot * this.slot, kind: n.type === 'cast' ? 'castanet' : 'stomp', vol: n.type === 'cast' ? 0.2 : 0.26 });
       ev.push({ t: rd.respT - spb * 0.5, kind: 'sparkle' });
     });
@@ -138,7 +140,7 @@ const ChocoGame = {
       if (rel >= rd.endT + w) {
         rd.done = true;
         const errors = rd.miss + rd.wrong + rd.stray;
-        rd.ok = errors <= rd.allow;
+        rd.ok = errors <= this.forgive;
         if (rd.ok) this.ok++;
         const clean = errors === 0 && rd.resp.every((n) => n.state === 'perfect');
         this.label = { text: rd.ok ? (clean ? '완벽해요!' : '좋아요!') : '아쉬워요', rating: rd.ok ? 'perfect' : 'miss', born: rel, big: true };
@@ -156,14 +158,14 @@ const ChocoGame = {
     if (K.cast.includes(code)) { this.tap(R, 'cast', t); return true; }
     return false;
   },
-  /* test hook: plays the notes of every round at their exact times through tap(); `fail` rounds are left silent, `wrong` rounds use the other pad, `good` notes come 0.11 s late */
+  /* test hook: plays the notes of every round at their exact times through tap(); `fail` rounds are left silent, `wrong` rounds use the other pad, `good` notes come late by the middle of the good window */
   auto(R, rel, plan) {
     for (const rd of this.rounds) {
       if (rd.done || rel < rd.respT - 0.2) continue;
       const fail = (plan.fail || []).includes(rd.r), wrong = (plan.wrong || []).includes(rd.r);
       rd.resp.forEach((n, i) => {
         if (n.state !== 'wait' || fail || n.autoDone) return;
-        const late = (((rd.r * 7 + i) * 19) % 100) / 100 < (plan.good || 0) ? 0.11 : 0.02;
+        const late = (((rd.r * 7 + i) * 19) % 100) / 100 < (plan.good || 0) ? (this.win.perfect + this.win.good) / 2 : 0.02;
         if (rel >= n.t + late) { n.autoDone = true; this.tap(R, wrong ? (n.type === 'cast' ? 'stomp' : 'cast') : n.type, n.t + late); }
       });
     }
@@ -177,60 +179,70 @@ const ChocoGame = {
     };
   },
   /* ---------- drawing ---------- */
+  /* where the strip of a round sits in the panel: its slots, its two rows (the dancer's above, the player's below) and the size of a mark */
+  geom(R, rd) {
+    const W = R.W, H = R.H, n = rd.slots, x0 = W * 0.05, x1 = W * 0.95, sw = (x1 - x0) / n, sy = H * 0.2, sh = Math.min(H * 0.3, 140);
+    return { W, H, n, x0, x1, sw, sy, sh, row1: sy + sh * 0.3, row2: sy + sh * 0.74, icon: Math.min(sw * 0.92, sh * 0.34), xOf: (slotF) => x0 + sw * (slotF + 0.5) };
+  },
   draw(R, g) {
     const W = R.W, H = R.H, rel = R.lastRel, C = SWEET_CFG.choco;
     R.panel(g, 'rgba(70,14,26,0.78)', 'rgba(36,6,12,0.92)');
     const rd = this.cur >= 0 ? this.rounds[this.cur] : this.rounds[this.rounds.length - 1];
     const states = this.rounds.map((x) => (x.done ? (x.ok ? 'ok' : 'no') : ''));
     R.dots(g, W / 2, 22, this.rounds.length, states, this.cur, Math.min(7, W * 0.016));
-    // phase line
-    let phase = '', pcol = '#fff1d6';
-    if (rel < 0) phase = '박자를 느껴 보세요';
-    else if (this.cur < 0 || rel >= this.outroT) { phase = '올레!'; pcol = '#ffe08a'; }
-    else if (rel < rd.callT) phase = '잘 들어 보세요';
-    else if (rel < rd.respT) phase = '잘 들어 보세요 · 무용수 차례';
-    else phase = '이제 따라 쳐요!';
-    if (rel >= 0 && rel < rd.respT && rel >= rd.callT) pcol = '#ffe3c0';
-    if (rel >= rd.respT && rel < rd.endT) pcol = '#ffe08a';
+    // what the stage is doing: counting in, the dancer playing her pattern, or the player's turn (her pattern stays up the whole time)
+    const finale = this.cur < 0 || rel >= this.outroT;
+    const calling = !finale && rel >= rd.callT && rel < rd.respT - 0.05, answering = !finale && rel >= rd.respT - 0.05 && rel < rd.endT + 0.1;
+    let phase = '박자를 느껴 보세요', pcol = '#fff1d6';
+    if (finale) { phase = '올레!'; pcol = '#ffe08a'; }
+    else if (calling) { phase = '무용수의 박자를 잘 들어요'; pcol = '#ffe3c0'; }
+    else if (answering) { phase = '위의 박자를 보며 따라 쳐요!'; pcol = '#ffe08a'; }
+    else if (rel >= 0) phase = '잘 들어 보세요';
     R.text(g, phase, W / 2, 50, Math.min(20, W * 0.05), pcol);
-    // the strip: two bars of eight-note slots, the dancer's row above the player's row
-    const x0 = W * 0.06, x1 = W * 0.94, sw = (x1 - x0) / 12, sy = H * 0.2, sh = Math.min(H * 0.3, 140), row1 = sy + sh * 0.3, row2 = sy + sh * 0.74;
+    // the strip: the dancer's row above the player's row, one slot per eighth note (six to a bar)
+    const { n, x0, x1, sw, sy, sh, row1, row2, icon, xOf } = this.geom(R, rd);
+    const mark = (type, x, y, s, a, glow) => (type === 'cast' ? drawCastanet : drawShoe)(g, x, y, s, a, glow);
     g.fillStyle = 'rgba(20,4,8,0.45)'; rr(g, x0 - 6, sy, x1 - x0 + 12, sh, 12); g.fill();
-    g.strokeStyle = 'rgba(241,217,152,0.35)'; g.lineWidth = 1; g.beginPath(); g.moveTo(x0 + sw * 6, sy + 6); g.lineTo(x0 + sw * 6, sy + sh - 6); g.stroke();
+    g.strokeStyle = 'rgba(241,217,152,0.35)'; g.lineWidth = 1;
+    for (let b = 1; b < rd.bars; b++) { g.beginPath(); g.moveTo(x0 + sw * 6 * b, sy + 6); g.lineTo(x0 + sw * 6 * b, sy + sh - 6); g.stroke(); }
     g.beginPath(); g.moveTo(x0, (row1 + row2) / 2); g.lineTo(x1, (row1 + row2) / 2); g.strokeStyle = 'rgba(241,217,152,0.18)'; g.stroke();
-    const icon = Math.min(sw * 0.86, sh * 0.36);
-    for (let i = 0; i < 12; i++) {
-      const cx = x0 + sw * (i + 0.5), beat = i % 2 === 0;
+    for (let i = 0; i < n; i++) {
+      const cx = xOf(i), beat = i % 2 === 0;
       for (const y of [row1, row2]) { g.fillStyle = beat ? 'rgba(255,236,200,0.28)' : 'rgba(255,236,200,0.12)'; g.beginPath(); g.arc(cx, y, beat ? 3.2 : 2, 0, TAU); g.fill(); }
     }
-    R.text(g, '무용수', x0 + 2, sy - 9, 12, 'rgba(255,228,200,0.75)', { align: 'left', weight: 700, stroke: false });
-    R.text(g, '클라라', x0 + 2, sy + sh + 11, 12, 'rgba(255,228,200,0.75)', { align: 'left', weight: 700, stroke: false });
-    const xOf = (slotF) => x0 + sw * (slotF + 0.5);
-    if (rel >= rd.callT - 0.1) {
-      for (const n of rd.notes) {
-        const tn = rd.callT + n.slot * this.slot, age = rel - tn;
-        let a = 0;
-        if (age >= 0) a = 1; else continue;
-        if (rel >= rd.respT) a = rd.ghost ? 0.4 : Math.max(0, 1 - (rel - rd.respT) / 0.35);
-        if (a <= 0.01) continue;
-        const pop = age < 0.25 ? 1 + 0.5 * (1 - age / 0.25) : 1;
-        (n.type === 'cast' ? drawCastanet : drawShoe)(g, xOf(n.slot), row1, icon * pop, a, age < 0.4 ? 1 - age / 0.4 : 0);
-      }
+    R.text(g, '무용수의 박자', x0 + 2, sy - 9, 12, 'rgba(255,228,200,0.85)', { align: 'left', weight: 700, stroke: false });
+    R.text(g, '내 박자', x0 + 2, sy + sh + 11, 12, 'rgba(255,228,200,0.85)', { align: 'left', weight: 700, stroke: false });
+    // the player's row: a faint mark where each note has to land, clearer as its time comes, until it is played
+    const lead = clamp((rel - (rd.respT - 0.7)) / 0.5, 0, 1);
+    if (lead > 0) for (const nn of rd.resp) if (nn.state === 'wait') mark(nn.type, xOf(nn.slot), row2, icon * 0.9, lead * (0.28 + 0.5 * clamp(1 - (nn.t - rel) / 0.75, 0, 1)), 0);
+    // the dancer's row: every note she has played stays on the strip for the whole round
+    for (const nn of rd.notes) {
+      const age = rel - (rd.callT + nn.slot * this.slot);
+      if (age < 0) continue;
+      mark(nn.type, xOf(nn.slot), row1, icon * (age < 0.25 ? 1 + 0.5 * (1 - age / 0.25) : 1), 1, age < 0.4 ? 1 - age / 0.4 : 0);
+    }
+    // the note about to be played back: a ring closes in on it in the dancer's row, and a thread leads down to its place in the player's row
+    if (answering) for (const nn of rd.resp) {
+      if (nn.state !== 'wait') continue;
+      const dt = nn.t - rel; if (dt > 0.75) continue;
+      const k = clamp(1 - dt / 0.75, 0, 1), x = xOf(nn.slot);
+      g.strokeStyle = `rgba(255,233,168,${0.2 + 0.45 * k})`; g.lineWidth = 1.5; g.setLineDash([2, 4]); g.beginPath(); g.moveTo(x, row1 + icon * 0.62); g.lineTo(x, row2 - icon * 0.55); g.stroke(); g.setLineDash([]);
+      g.strokeStyle = `rgba(255,233,168,${0.3 + 0.65 * k})`; g.lineWidth = 2.5; g.beginPath(); g.arc(x, row1, icon * (0.98 - 0.36 * k), 0, TAU); g.stroke();
     }
     for (const tp of rd.taps) {
       const sf = (tp.t - rd.respT) / this.slot, age = rel - tp.t;
-      const x = xOf(clamp(sf, -0.4, 11.4));
-      (tp.type === 'cast' ? drawCastanet : drawShoe)(g, x, row2, icon * (age < 0.2 ? 1.25 - age : 1), 1, tp.rating === 'perfect' || tp.rating === 'good' ? Math.max(0.25, 1 - age * 2) : 0);
+      const x = xOf(clamp(sf, -0.4, n - 0.6));
+      mark(tp.type, x, row2, icon * (age < 0.2 ? 1.25 - age : 1), 1, tp.rating === 'perfect' || tp.rating === 'good' ? Math.max(0.25, 1 - age * 2) : 0);
       if (tp.rating === 'wrong' || tp.rating === 'stray') { g.strokeStyle = 'rgba(255,140,150,0.9)'; g.lineWidth = 2.5; g.beginPath(); g.arc(x, row2, icon * 0.55, 0, TAU); g.stroke(); }
     }
-    for (const n of rd.resp) if (n.state === 'miss') { g.strokeStyle = 'rgba(255,170,180,0.55)'; g.setLineDash([3, 4]); g.lineWidth = 2; g.beginPath(); g.arc(xOf(n.slot), row2, icon * 0.45, 0, TAU); g.stroke(); g.setLineDash([]); }
-    // the playhead runs across the strip in both halves of a round
+    for (const nn of rd.resp) if (nn.state === 'miss') { g.strokeStyle = 'rgba(255,170,180,0.55)'; g.setLineDash([3, 4]); g.lineWidth = 2; g.beginPath(); g.arc(xOf(nn.slot), row2, icon * 0.45, 0, TAU); g.stroke(); g.setLineDash([]); }
+    // the playhead runs across the dancer's row while she plays, and across both rows while the player answers
     if (rel >= rd.callT && rel < rd.endT) {
-      const inResp = rel >= rd.respT, start = inResp ? rd.respT : rd.callT, sf = (rel - start) / this.slot - 0.5;
-      const x = xOf(clamp(sf, -0.5, 11.5)), y = inResp ? row2 : row1;
+      const inResp = rel >= rd.respT, sf = (rel - (inResp ? rd.respT : rd.callT)) / this.slot - 0.5;
+      const x = xOf(clamp(sf, -0.5, n - 0.5)), yTop = row1 - icon * 0.6, yBot = (inResp ? row2 : row1) + icon * 0.6;
       const lg = g.createLinearGradient(x - 14, 0, x + 2, 0); lg.addColorStop(0, 'rgba(255,224,150,0)'); lg.addColorStop(1, 'rgba(255,224,150,0.55)');
-      g.fillStyle = lg; g.fillRect(x - 14, y - icon * 0.6, 16, icon * 1.2);
-      g.fillStyle = '#fff3c9'; g.fillRect(x, y - icon * 0.6, 2, icon * 1.2);
+      g.fillStyle = lg; g.fillRect(x - 14, yTop, 16, yBot - yTop);
+      g.fillStyle = '#fff3c9'; g.fillRect(x, yTop, 2, yBot - yTop);
     }
     // the label of the last tap or round
     const lb = this.label;
@@ -240,8 +252,10 @@ const ChocoGame = {
       R.text(g, lb.text, 0, 0, lb.big ? Math.min(26, W * 0.065) : Math.min(19, W * 0.048), col, { alpha: 1 - clamp((age - (lb.big ? 0.8 : 0.35)) / 0.3, 0, 1) });
       g.restore();
     }
-    // the two pads: stamp on the left, castanets on the right
+    // the two pads: stamp on the left, castanets on the right; they rest while the dancer plays and light up for the player's turn
+    const listening = rel >= 0 && !finale && !answering, padA = listening ? 0.55 + 0.45 * clamp((rel - (rd.respT - R.spb)) / R.spb, 0, 1) : 1;
     const pr = Math.min(W * 0.19, H * 0.15, 88), py = H - pr - Math.max(18, H * 0.05);
+    g.save(); g.globalAlpha = padA;
     [['stomp', W * 0.27, '쿵 · 발 구르기', C.keys.stomp], ['cast', W * 0.73, '딱 · 캐스터네츠', C.keys.cast]].forEach(([type, px, label, keys], i) => {
       const age = rel - this.pad[i], flash = age >= 0 && age < 0.18 ? 1 - age / 0.18 : 0;
       const grd = g.createRadialGradient(px - pr * 0.3, py - pr * 0.35, pr * 0.1, px, py, pr);
@@ -253,6 +267,7 @@ const ChocoGame = {
       R.text(g, label, px, py + pr * 0.66, Math.min(14, W * 0.034), '#fff4e2', { weight: 700 });
       if (!DEVICE.touch) R.text(g, keys.map((k) => k.replace('Key', '').replace('Arrow', '').replace('Left', '←').replace('Right', '→')).join(' · '), px, py - pr - 10, 12, 'rgba(255,236,200,0.85)', { weight: 700, font: 'Cinzel, serif' });
     });
+    g.restore();
   },
 };
 

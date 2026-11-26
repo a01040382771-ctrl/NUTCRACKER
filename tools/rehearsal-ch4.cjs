@@ -11,27 +11,44 @@ const { open } = require('./harness.cjs');
   const rules = await ev(() => {
     const n = window.__nut, G4 = n.REHEARSAL_GAMES, out = {};
     const R = { spb: 60 / n.SWEET_CFG.choco.bpm, W: 400, H: 420, ptr: { type: 'touch', down: false, inside: false, x: 0, y: 0 }, emit() {}, finish(r) { this.done = r; }, endLoop(b) { return b; }, melody() { return []; } };
-    // chocolate: a pattern played back
+    // chocolate: a pattern played back ('late' is the middle of the good window)
     const C = G4.choco; C.prepare(R);
-    const r0 = C.rounds[0], n0 = r0.resp[0], n1 = r0.resp[1], n2 = r0.resp[2];
+    const late = (C.win.perfect + C.win.good) / 2;
+    const r0 = C.rounds[0], n0 = r0.resp[0], n1 = r0.resp[1], n2 = r0.resp[2];   // the first pattern: three castanets in one bar
     out.perfect = C.tap(R, 'cast', n0.t + 0.03);
-    out.good = C.tap(R, 'cast', n1.t + 0.12);
+    out.good = C.tap(R, 'cast', n1.t + late);
     out.wrong = C.tap(R, 'stomp', n2.t);
-    out.stray = C.tap(R, 'cast', r0.resp[2].t + C.slot * 4);
+    out.stray = C.tap(R, 'cast', r0.respT + C.slot * 5);   // the last eighth of the bar: a whole slot away from the last note
     out.free = C.tap(R, 'cast', r0.callT + 0.01);
-    C.update(R, r0.endT + 0.2);
+    C.update(R, r0.endT + 0.3);
     out.round0 = { ok: r0.ok, done: r0.done, wrong: r0.wrong, stray: r0.stray, miss: r0.miss };
-    // a quick run of eighth notes: a late tap keeps its own note, the next tap gets the next note
+    // the rounds follow each other: a pattern of one bar is played and answered in two bars, a pattern of two bars in four
     C.prepare(R);
-    const r3 = C.rounds[3], q = r3.resp;   // 'CCC.S.|S.C.C.' starts with three castanets in a row
-    out.run = [C.tap(R, 'cast', q[0].t + 0.11), C.tap(R, 'cast', q[1].t + 0.01), C.tap(R, 'cast', q[2].t - 0.02)].concat(q.slice(0, 3).map((x) => x.state));
-    // a round with six or more notes forgives one slip; a short one does not
+    out.layout = { first: Math.abs(C.rounds[0].callT - n.SWEET_CFG.choco.introBars * C.bar) < 1e-9, bars: C.rounds.map((r) => r.bars), back: C.rounds.every((r, i) => (!i || Math.abs(r.callT - C.rounds[i - 1].endT) < 1e-9) && Math.abs(r.endT - r.callT - 2 * r.bars * C.bar) < 1e-9 && r.slots === r.bars * 6), outro: Math.abs(C.outroT - C.rounds[C.rounds.length - 1].endT) < 1e-9 };
+    // a quick run of eighth notes: a late tap keeps its own note, the next taps get the next notes
+    const isRun = (a, i) => i + 2 < a.length && [0, 1, 2].every((k) => a[i + k].type === 'cast' && a[i + k].slot === a[i].slot + k);
+    const rr = C.rounds.find((r) => r.resp.some((x, i, a) => isRun(a, i))), q = rr.resp.slice(rr.resp.findIndex((x, i, a) => isRun(a, i))).slice(0, 3);
+    out.run = [C.tap(R, 'cast', q[0].t + late), C.tap(R, 'cast', q[1].t + 0.01), C.tap(R, 'cast', q[2].t - 0.02)].concat(q.map((x) => x.state));
+    // one slip is forgiven in every pattern, two are not
     C.prepare(R);
-    const a = C.rounds[2], b = C.rounds[1];
-    a.resp.forEach((x, i) => { if (i) C.tap(R, x.type, x.t); });   // all but the first note
-    b.resp.forEach((x, i) => { if (i) C.tap(R, x.type, x.t); });
+    const a = C.rounds[2], b = C.rounds[3];
+    a.resp.forEach((x, i) => { if (i) C.tap(R, x.type, x.t); });       // all but the first note: one slip
+    b.resp.forEach((x, i) => { if (i > 1) C.tap(R, x.type, x.t); });   // all but the first two notes: two slips
     C.update(R, Math.max(a.endT, b.endT) + 0.3);
-    out.forgive = { six: a.ok, four: b.ok };
+    out.forgive = { one: a.ok, two: b.ok };
+    // the dancer's notes stay on the top row of the strip while the player answers: the panel is drawn at chosen moments of a pattern of two bars
+    // (on a stand-in stage, at the size of the desktop panel and at the size of the phone panel) and its pixels are read at every note
+    const inkAt = (W, H, round, rel) => {
+      const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+      const g2 = cv.getContext('2d', { willReadFrequently: true }), R2 = Object.assign(Object.create(n.Recital), { W, H, dpr: 1, spb: R.spb, lastRel: rel });
+      C.prepare(R2); C.cur = round;
+      const rd = C.rounds[round]; C.draw(R2, g2);
+      const gm = C.geom(R2, rd), count = (cx, cy) => { const r = Math.max(2, Math.round(gm.icon * 0.45)), px = g2.getImageData(Math.max(0, Math.round(cx) - r), Math.max(0, Math.round(cy) - r), 2 * r, 2 * r).data; let k = 0; for (let i = 0; i < px.length; i += 4) if (px[i] > 120) k++; return k; };
+      return { notes: rd.notes.map((nn) => count(gm.xOf(nn.slot), gm.row1)), empty: count(gm.xOf(11), gm.row1), icon: Math.round(gm.icon) };
+    };
+    const rd2 = C.rounds[2];   // two bars, six notes
+    out.ink = {};
+    for (const [name, W, H] of [['desktop', 460, 470], ['phone', 374, 456]]) out.ink[name] = { end: inkAt(W, H, 2, rd2.respT - 0.3), answering: inkAt(W, H, 2, rd2.respT + 1.0), late: inkAt(W, H, 2, rd2.endT - 0.15) };
     // coffee: the share of time on the bead
     const K = G4.coffee, pct = (off) => {
       K.prepare(R); R.done = null;
@@ -54,8 +71,10 @@ const { open } = require('./harness.cjs');
   ok('chocolate: on the beat is exact, a little late is good, the other pad is a wrong sound, a gap is off the beat', rules.perfect === 'perfect' && rules.good === 'good' && rules.wrong === 'wrong' && rules.stray === 'stray', rules);
   ok('chocolate: taps while the dancer plays are free (never judged)', rules.free === 'free', rules.free);
   ok('chocolate: a short pattern with a wrong sound and a stray tap is not played back', rules.round0.done && !rules.round0.ok && rules.round0.wrong === 1 && rules.round0.stray === 1, rules.round0);
+  ok('chocolate: a pattern of one bar is played and answered in two bars, a pattern of two bars in four, one after the other', rules.layout.first && rules.layout.back && rules.layout.outro && JSON.stringify(rules.layout.bars) === JSON.stringify([1, 1, 2, 2, 2, 2]), rules.layout);
   ok('chocolate: in a quick run a late tap keeps its own note and the next taps take the next notes', JSON.stringify(rules.run) === JSON.stringify(['good', 'perfect', 'perfect', 'good', 'perfect', 'perfect']), rules.run);
-  ok('chocolate: one slip is forgiven in a pattern of six notes, not in a pattern of four', rules.forgive.six === true && rules.forgive.four === false, rules.forgive);
+  ok('chocolate: one slip is forgiven in every pattern, two are not', rules.forgive.one === true && rules.forgive.two === false, rules.forgive);
+  ok('chocolate: the dancer\'s notes stay on the top row from her last note to the end of the answer (desktop and phone panel)', ['desktop', 'phone'].every((k) => ['end', 'answering', 'late'].every((t) => rules.ink[k][t].notes.length === 6 && rules.ink[k][t].notes.every((v) => v >= 6)) && rules.ink[k].answering.empty <= 2), rules.ink);
   ok('coffee: on the bead 100%, inside the ring 100%, just outside it half, far away nothing', rules.coffee.on === 100 && rules.coffee.ring === 100 && rules.coffee.near === 50 && rules.coffee.off === 0, rules.coffee);
   ok('tea: over the tower exact, a little late good, far off it slips off', JSON.stringify(rules.tea) === JSON.stringify(['perfect', 'good', 'miss']) && rules.teaCups === 2 && rules.teaLives === 2, { tea: rules.tea, cups: rules.teaCups, lives: rules.teaLives });
   ok('tea: three slips and the tower has to be built again', rules.teaEnd.state === 'lost' && rules.teaEnd.lives === 0 && !rules.teaEnd.pass, rules.teaEnd);
