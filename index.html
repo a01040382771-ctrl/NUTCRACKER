@@ -168,6 +168,13 @@ kbd { font: 700 12px/1 'Cinzel', serif; padding: 4px 6px; border-radius: 4px; ba
   #rhythm { justify-content: flex-end; padding-right: max(24px, 4vw); }
   .rh-field { width: min(440px, 38vw); height: min(84vh, 660px); }
 }
+/* skip the snowflakes' waltz */
+.skip-btn { position: absolute; z-index: 13; right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(env(safe-area-inset-bottom, 0px) + 18px);
+  min-height: 44px; padding: 0 18px; border: 0; border-radius: 22px; background: rgba(28,20,48,.52); color: #f4f0ff; font-size: 15px; letter-spacing: .02em;
+  box-shadow: inset 0 0 0 1.5px rgba(220,232,255,.55); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); cursor: pointer; }
+.skip-btn span { font-size: 19px; margin-left: 2px; }
+.skip-btn:focus-visible { outline: 2px solid #fff3c9; outline-offset: 3px; }
+.tog.wide { grid-column: 1 / -1; }
 
 /* ---------- dialog ---------- */
 #dialog { position: absolute; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 18px); transform: translateX(-50%); z-index: 20; width: min(760px, calc(100vw - 32px));
@@ -370,6 +377,9 @@ kbd { font: 700 12px/1 'Cinzel', serif; padding: 4px 6px; border-radius: 4px; ba
     <div class="rh-field" id="rhField"><canvas id="rhCv" aria-label="눈송이 리듬 레인"></canvas></div>
   </div>
 
+  <!-- the snowflakes' waltz (chapter III finale) -->
+  <button id="danceSkip" class="skip-btn" type="button" hidden>공연 건너뛰기 <span aria-hidden="true">›</span></button>
+
   <!-- touch controls -->
   <div id="controls" hidden>
     <div id="stickZone"><div id="stickBase"><div id="stickKnob"></div></div></div>
@@ -448,7 +458,9 @@ kbd { font: 700 12px/1 'Cinzel', serif; padding: 4px 6px; border-radius: 4px; ba
         <div class="toggles">
           <button class="tog" id="btnSound">소리 <b id="soundState">켜짐</b></button>
           <button class="tog" id="btnQuality">화질 <b id="qualityState">자동</b></button>
+          <button class="tog wide" id="btnDanceMusic" type="button">눈송이 왈츠 음원 <b id="danceMusicState">기본 연주</b></button>
         </div>
+        <input type="file" id="danceFile" accept="audio/*,.mp3" hidden>
       </div>
       <p class="help" id="helpText"></p>
     </div>
@@ -1922,14 +1934,18 @@ function makeBlob(r = 0.5) {
    ===================================================================== */
 
 /* ---------------- shared doll rig (Clara · Sugar Plum Fairy · Prince) ---------------- */
-function buildDoll(kind) {
+/* opts.lod: a lighter build for crowds (the corps de ballet); without it every count below is exactly the original */
+function buildDoll(kind, opts = {}) {
+  const D = opts.lod ? 0.5 : 1, q = (n, m = 3) => (D === 1 ? n : Math.max(m, Math.round(n * D)));
   const C = {
     clara: { dress: '#f2bccb', dress2: '#f8d8df', trim: '#fdf6ea', sash: '#8a2140', hair: '#6c3a21', hair2: '#8f5634', legs: '#fbf6f1', shoe: '#efb0c0', hip: 0.5, legLen: 0.31, face: TEX.faceClara },
     fairy: { dress: '#f3b3c7', dress2: '#fde0e8', trim: '#fff8fb', sash: '#e2bb69', hair: '#d9a75c', hair2: '#f1cf8c', legs: '#f6d8de', shoe: '#f1b6c6', hip: 0.6, legLen: 0.41, face: TEX.faceFairy },
     prince: { dress: '#f7efe1', dress2: '#e7d7bb', trim: '#d9b05c', sash: '#a9c8ea', hair: '#9a6235', hair2: '#c08a52', legs: '#f7f1e8', shoe: '#7d1d36', hip: 0.6, legLen: 0.4, face: TEX.facePrince },
     snowfairy: { dress: '#bcd8f4', dress2: '#e8f2fd', trim: '#ffffff', sash: '#8db5e6', hair: '#cdd9ee', hair2: '#f1f6fd', legs: '#e8f0fa', shoe: '#b6cde9', hip: 0.6, legLen: 0.41, face: TEX.faceFairy, bodice: '#9cc0ea', accent: '#a9cdf2', gem: '#ffffff', metal: '#dbe6f5', metal2: '#f1f7ff', crown: '#8fd2ff' },
+    /* the snowflakes of the corps de ballet: white tutus with silver and ice-blue, a softer cousin of the snow fairy */
+    snowflake: { dress: '#ffffff', dress2: '#eef5ff', trim: '#ffffff', sash: '#c3d8f2', hair: '#e2dccf', hair2: '#f6f2ea', legs: '#f2f5fb', shoe: '#d9e5f5', hip: 0.6, legLen: 0.41, face: TEX.faceFairy, bodice: '#e4eefa', accent: '#b9d4f1', gem: '#ffffff', metal: '#e3ebf6', metal2: '#ffffff', crown: '#cfe8ff' },
   }[kind];
-  const isClara = kind === 'clara', isFairy = kind === 'fairy' || kind === 'snowfairy', isPrince = kind === 'prince';
+  const isClara = kind === 'clara', isFairy = kind === 'fairy' || kind === 'snowfairy' || kind === 'snowflake', isPrince = kind === 'prince';
   const root = new THREE.Group();
   const body = new THREE.Group(); body.position.y = C.hip; root.add(body);
   const skin = PAL.skin;
@@ -1953,11 +1969,12 @@ function buildDoll(kind) {
   } else if (isFairy) {
     for (let L = 0; L < 3; L++) {
       const R = 0.52 - L * 0.06, y0 = 0.07 + L * 0.035;
-      const g = lathe([[0.1, y0 + 0.05], [0.16, y0 + 0.035], [R * 0.7, y0 + 0.02], [R, y0 - 0.005], [R * 0.98, y0 - 0.03], [R * 0.7, y0 - 0.035], [0.1, y0 - 0.02]], 48, 18);
+      const g = lathe([[0.1, y0 + 0.05], [0.16, y0 + 0.035], [R * 0.7, y0 + 0.02], [R, y0 - 0.005], [R * 0.98, y0 - 0.03], [R * 0.7, y0 - 0.035], [0.1, y0 - 0.02]], q(48), q(18, 6));
       deform(g, (v) => { const a = Math.atan2(v.x, v.z), r = Math.hypot(v.x, v.z), w = smoothstep(0.15, R, r); v.y += w * 0.022 * Math.sin(a * 22 + L * 2); const k = 1 + w * 0.03 * Math.sin(a * 31 + L); v.x *= k; v.z *= k; });
       sk.add(g, (x, y, z) => { const r = Math.hypot(x, z); return new THREE.Color(L === 2 ? C.dress : C.dress2).lerp(new THREE.Color(C.trim), smoothstep(0.3, 0.55, r) * 0.6); });
     }
-    for (let i = 0; i < 26; i++) { const a = (i / 26) * TAU, r = rnd(0.22, 0.44); sk.add(GEO.sph(6, 4), i % 3 ? (C.gem || '#f6d68a') : '#ffffff', TRS(Math.sin(a) * r, 0.17, Math.cos(a) * r, 0, 0, 0, 0.012)); }
+    const nGem = opts.lod ? 8 : 26;
+    for (let i = 0; i < nGem; i++) { const a = (i / nGem) * TAU, r = rnd(0.22, 0.44); sk.add(GEO.sph(6, 4), i % 3 ? (C.gem || '#f6d68a') : '#ffffff', TRS(Math.sin(a) * r, 0.17, Math.cos(a) * r, 0, 0, 0, 0.012)); }
   } else {
     const g = lathe([[0.0, 0.08], [0.165, 0.08], [0.18, 0.0], [0.205, -0.1], [0.215, -0.135], [0.0, -0.12]], 36, 12);
     deform(g, (v) => { const a = Math.atan2(v.x, v.z); if (v.y < 0.02) { const k = 1 + 0.03 * Math.sin(a * 10); v.x *= k; v.z *= k; } });
@@ -1982,7 +1999,7 @@ function buildDoll(kind) {
     bd.add(collar, C.trim, TRS(0, 0.515, 0));
     for (let i = 0; i < 3; i++) bd.add(GEO.sph(8, 6), '#e3b565', TRS(0, 0.31 + i * 0.055, 0.145 - i * 0.002, 0, 0, 0, 0.013));
   } else if (isFairy) {
-    bd.add(lathe([[0.0, 0.2], [0.11, 0.2], [0.118, 0.28], [0.135, 0.36], [0.14, 0.42], [0.125, 0.455], [0.0, 0.46]], 28, 14), shade(C.bodice || '#e58ba6', 0.06));
+    bd.add(lathe([[0.0, 0.2], [0.11, 0.2], [0.118, 0.28], [0.135, 0.36], [0.14, 0.42], [0.125, 0.455], [0.0, 0.46]], q(28), q(14, 6)), shade(C.bodice || '#e58ba6', 0.06));
     const tr = new THREE.TorusGeometry(0.128, 0.012, 6, 30); tr.rotateX(Math.PI / 2);
     bd.add(tr, C.sash, TRS(0, 0.452, 0, 0, 0, 0, 1, 1, 1.04));
     for (let i = 0; i < 4; i++) bd.add(GEO.sph(8, 6), i % 2 ? '#ffffff' : (C.gem || '#f5cf7c'), TRS(0, 0.25 + i * 0.05, 0.12 + i * 0.006, 0, 0, 0, 0.014));
@@ -2022,7 +2039,7 @@ function buildDoll(kind) {
 
   /* --- head --- */
   const head = new THREE.Group(); head.position.y = isFairy ? 0.52 : 0.585; body.add(head);
-  const hg = new THREE.SphereGeometry(0.255, 36, 28);
+  const hg = new THREE.SphereGeometry(0.255, q(36), q(28));
   planarFaceUV(hg, 0.255, 0.255, 0, 0.47);
   const faceMat = new THREE.MeshStandardMaterial({ map: C.face.smile, roughness: 0.34, metalness: 0 });
   const headMesh = new THREE.Mesh(hg, faceMat);
@@ -2053,12 +2070,12 @@ function buildDoll(kind) {
     for (const s of [-1, 1]) hb.add(GEO.box(), C.sash, TRS(s * 0.035, -0.08, -0.01, 0.2, 0, s * 0.35, 0.04, 0.15, 0.012));
     hb.pop();
   } else if (isFairy) {
-    hb.add(new THREE.SphereGeometry(0.27, 30, 18, 0, TAU, 0, 1.7), hairCol, TRS(0, 0.006, -0.014, -0.42, 0, 0));
-    hb.add(GEO.sph(18, 14), hairCol, TRS(0, 0.21, -0.17, 0, 0, 0, 0.1, 0.095, 0.1));
-    hb.add(GEO.torus(0.1, 0.022, 8, 24), C.hair2, TRS(0, 0.19, -0.15, -0.6, 0, 0, 1, 1, 0.8));
-    for (const s of [-1, 1]) hb.add(GEO.sph(12, 8), hairCol, TRS(s * 0.19, 0.02, 0.1, 0, 0, s * 0.3, 0.07, 0.1, 0.06));
+    hb.add(new THREE.SphereGeometry(0.27, q(30), q(18), 0, TAU, 0, 1.7), hairCol, TRS(0, 0.006, -0.014, -0.42, 0, 0));
+    hb.add(GEO.sph(q(18), q(14)), hairCol, TRS(0, 0.21, -0.17, 0, 0, 0, 0.1, 0.095, 0.1));
+    hb.add(GEO.torus(0.1, 0.022, q(8, 4), q(24)), C.hair2, TRS(0, 0.19, -0.15, -0.6, 0, 0, 1, 1, 0.8));
+    for (const s of [-1, 1]) hb.add(GEO.sph(q(12), q(8)), hairCol, TRS(s * 0.19, 0.02, 0.1, 0, 0, s * 0.3, 0.07, 0.1, 0.06));
     // tiara
-    const tg = new THREE.TorusGeometry(0.2, 0.012, 6, 30, Math.PI * 0.9);
+    const tg = new THREE.TorusGeometry(0.2, 0.012, q(6), q(30), Math.PI * 0.9);
     hb.add(tg, C.metal || '#e8c070', TRS(0, 0.16, 0.04, -0.75, 0, Math.PI * 0.05));
     for (let i = 0; i < 7; i++) { const a = lerp(0.35, Math.PI - 0.35, i / 6); hb.add(GEO.cone(6), C.metal2 || '#f0d080', TRS(Math.cos(a) * 0.2, 0.16 + Math.sin(a) * 0.2 * 0.73, 0.04 + Math.sin(a) * 0.2 * 0.68, -0.75 + Math.PI * 0.0, 0, Math.cos(a) * -0.9, 0.018, i === 3 ? 0.09 : 0.05, 0.018)); }
     hb.add(GEO.sph(10, 8), C.crown || '#f28aa8', TRS(0, 0.33, 0.17, 0, 0, 0, 0.026));
@@ -2087,16 +2104,16 @@ function buildDoll(kind) {
       ab.add(GEO.capsule(0.05, 0.14, 4, 10), C.dress, TRS(0, -0.1, 0));
       ab.add(GEO.torus(0.045, 0.014, 6, 18), C.trim, TRS(0, -0.19, 0, Math.PI / 2, 0, 0));
     } else {
-      ab.add(GEO.torus(0.036, 0.008, 6, 16), C.metal || '#e8c070', TRS(0, -0.1, 0, Math.PI / 2, 0, 0));
+      ab.add(GEO.torus(0.036, 0.008, q(6), q(16)), C.metal || '#e8c070', TRS(0, -0.1, 0, Math.PI / 2, 0, 0));
     }
-    ab.add(GEO.capsule(0.031, 0.13, 4, 10), skin, TRS(0, isPrince ? -0.06 : -0.12, 0, 0, 0, 0, isPrince ? 0.8 : 1));
+    ab.add(GEO.capsule(0.031, 0.13, q(4, 2), q(10, 5)), skin, TRS(0, isPrince ? -0.06 : -0.12, 0, 0, 0, 0, isPrince ? 0.8 : 1));
     const upper = ab.build();
     sh.add(upper);
     const el = new THREE.Group(); el.position.y = isFairy ? -0.21 : -0.2; sh.add(el);
     const fb = new Batch(MAT.porcelain);
-    fb.add(GEO.capsule(0.028, 0.12, 4, 10), isPrince ? C.dress : skin, TRS(0, -0.08, 0));
+    fb.add(GEO.capsule(0.028, 0.12, q(4, 2), q(10, 5)), isPrince ? C.dress : skin, TRS(0, -0.08, 0));
     if (isPrince) fb.add(GEO.torus(0.034, 0.012, 6, 16), C.trim, TRS(0, -0.15, 0, Math.PI / 2, 0, 0));
-    fb.add(GEO.sph(12, 10), skin, TRS(0, -0.175, 0.005, 0, 0, 0, 0.036, 0.046, 0.03));
+    fb.add(GEO.sph(q(12), q(10)), skin, TRS(0, -0.175, 0.005, 0, 0, 0, 0.036, 0.046, 0.03));
     const fore = fb.build();
     el.add(fore);
     const hand = new THREE.Object3D(); hand.position.y = -0.19; el.add(hand);
@@ -2110,14 +2127,14 @@ function buildDoll(kind) {
     const hip = new THREE.Group(); hip.position.set(side * 0.072, -0.02, 0);
     const lb = new Batch(MAT.satin);
     const L = C.legLen;
-    lb.add(GEO.capsule(0.042, L, 4, 10), C.legs, TRS(0, -(0.02 + 0.042 + L / 2), 0));
+    lb.add(GEO.capsule(0.042, L, q(4, 2), q(10, 5)), C.legs, TRS(0, -(0.02 + 0.042 + L / 2), 0));
     const footY = -(C.hip - 0.05);
     if (isPrince) {
       lb.add(GEO.cyl(12), C.shoe, TRS(0, footY + 0.09, 0, 0, 0, 0, 0.05, 0.16, 0.05));
       lb.add(GEO.torus(0.05, 0.01, 6, 16), C.trim, TRS(0, footY + 0.17, 0, Math.PI / 2, 0, 0));
     }
-    lb.add(GEO.sph(14, 10), C.shoe, TRS(0, footY, 0.03, 0, 0, 0, 0.048, 0.032, 0.088));
-    lb.add(GEO.torus(0.04, 0.007, 6, 16), C.shoe, TRS(0, footY + 0.05, 0, Math.PI / 2.4, 0, 0));
+    lb.add(GEO.sph(q(14), q(10)), C.shoe, TRS(0, footY, 0.03, 0, 0, 0, 0.048, 0.032, 0.088));
+    lb.add(GEO.torus(0.04, 0.007, q(6), q(16)), C.shoe, TRS(0, footY + 0.05, 0, Math.PI / 2.4, 0, 0));
     const leg = lb.build();
     hip.add(leg);
     body.add(hip);
@@ -2142,7 +2159,7 @@ function buildDoll(kind) {
     wings = new THREE.Group(); wings.position.set(0, 0.42, -0.12);
     for (const s of [-1, 1]) {
       const w = new THREE.Group();
-      const a = new THREE.Mesh(new THREE.ShapeGeometry(wingShape, 12), wm); const b = new THREE.Mesh(new THREE.ShapeGeometry(wingShape2, 10), wm);
+      const a = new THREE.Mesh(new THREE.ShapeGeometry(wingShape, q(12, 5)), wm); const b = new THREE.Mesh(new THREE.ShapeGeometry(wingShape2, q(10, 5)), wm);
       w.add(a, b); w.scale.x = s; w.rotation.y = s * -0.5;
       wings.add(w);
     }
@@ -2169,7 +2186,7 @@ function updateDoll(d, dt, speed, grounded, vy) {
   if (a.walk > 0.03) a.phase += dt * (4.5 + 7.5 * a.walk);
   const s = Math.sin(a.phase);
   const W = a.walk * (1 - a.air), A = a.air;
-  const fairy = d.kind === 'fairy' || d.kind === 'snowfairy', prince = d.kind === 'prince';
+  const fairy = d.kind === 'fairy' || d.kind === 'snowfairy' || d.kind === 'snowflake', prince = d.kind === 'prince';
   // rest pose
   let by = C.hip + Math.sin(a.t * 2.1) * 0.006, lean = 0, twist = 0, roll = 0;
   let lsx = -0.12, lsz = 0.2, rsx = -0.12, rsz = -0.2, lel = -0.45, rel = -0.45, llx = 0, rlx = 0, llz = 0, rlz = 0;
@@ -7423,6 +7440,27 @@ const SNOW_CFG = {
   },
 };
 
+/* ---------- the snowflakes' waltz: the corps de ballet before the gate opens ---------- */
+const SNOW_DANCE = {
+  corps: 12,            // dancers in the corps de ballet (all drawn together: one draw call per body part)
+  corpsLite: 8,         // on the "부드럽게" quality setting or a low-memory phone
+  stage: { back: 8.5, radius: 5.4 },   // centre of the clearing, metres in front of the gate · radius the formations use
+  sections: [20, 12, 13, 19],          // bars of each part: theme · variation · hush · finale (64 bars)
+  builtinBpm: 172,      // quarter-note tempo of the built-in performance (≈ 1.05 s a bar, like the recording below)
+  tailSec: 3.6,         // the last chord rings this long after the final bar
+  /* Optional: a recording the player keeps on their own device. It is picked in the pause menu and stored only in
+     that browser; it is never part of the game files. The map below was measured on one recording of
+     Tchaikovsky's "Waltz of the Snowflakes" (6:35, 6,380,697 bytes); a different file is not used, because the
+     dancers would fall off the beat. */
+  local: {
+    sizeBytes: 6380697, sizeTolerance: 0.01,
+    start: 325.567,     // the excerpt: the E major section after the last hush, to the final chord
+    end: 395.3,
+    // beat times from the start of the excerpt, every 3rd one is a bar line (64 bars)
+    beats: [0,0.348,0.708,1.068,1.428,1.776,2.125,2.473,2.81,3.158,3.506,3.855,4.203,4.54,4.876,5.224,5.561,5.898,6.246,6.594,6.943,7.291,7.639,7.976,8.313,8.649,9.009,9.369,9.729,10.089,10.437,10.786,11.134,11.494,11.842,12.202,12.562,12.922,13.259,13.595,13.932,14.28,14.629,14.977,15.325,15.673,16.033,16.382,16.73,17.067,17.403,17.752,18.112,18.46,18.808,19.133,19.493,19.841,20.19,20.55,20.91,21.258,21.606,21.954,22.303,22.639,22.988,23.324,23.661,23.998,24.346,24.694,25.043,25.379,25.728,26.088,26.436,26.784,27.156,27.504,27.852,28.224,28.584,28.932,29.292,29.652,30.012,30.36,30.697,31.033,31.393,31.753,32.102,32.438,32.775,33.112,33.46,33.808,34.168,34.505,34.853,35.19,35.538,35.886,36.235,36.571,36.92,37.256,37.593,37.965,38.313,38.661,39.01,39.346,39.695,40.031,40.368,40.705,41.053,41.413,41.761,42.109,42.469,42.829,43.189,43.549,43.897,44.257,44.64,45,45.349,45.708,46.057,46.417,46.765,47.113,47.473,47.821,48.17,48.518,48.855,49.191,49.528,49.876,50.213,50.561,50.91,51.246,51.583,51.92,52.257,52.593,52.93,53.278,53.626,53.986,54.335,54.683,55.02,55.356,55.693,56.041,56.378,56.715,57.051,57.4,57.748,58.096,58.445,58.793,59.153,59.513,59.873,60.244,60.616,60.952,61.289,61.614,61.962,62.322,62.682,63.054,63.414,63.785,64.18,64.54,64.877,65.213,65.562,65.898,66.235,66.572,66.897],
+  },
+};
+
 /* ---- 18-snowtex.js ---- */
 /* =====================================================================
    18 · SNOWFLAKE FOREST TEXTURES AND MATERIALS — painted when the chapter first opens
@@ -7529,11 +7567,19 @@ function buildSnowland(root, N) {
   Object.assign(W3, { P, T, LEN, sTile, gateS: lead + N * TL + 2.8 });
   const side = (s, sd, off) => { const p = P(s), t = T(s); return V3(p.x - t.z * sd * off, 0, p.z + t.x * sd * off); };
 
+  /* the clearing before the gate where the snowflakes dance: centre, axes (x across, z towards the gate) */
+  const gT0 = T(W3.gateS), gP0 = P(W3.gateS), gYaw = Math.atan2(gT0.x, gT0.z), SR = SNOW_DANCE.stage.radius;
+  const stage = { yaw: gYaw, r: SR, fx: Math.sin(gYaw), fz: Math.cos(gYaw), rx: Math.cos(gYaw), rz: -Math.sin(gYaw) };
+  stage.x = gP0.x - stage.fx * SNOW_DANCE.stage.back; stage.z = gP0.z - stage.fz * SNOW_DANCE.stage.back;
+  stage.toWorld = (lx, lz, out) => out.set(stage.x + lx * stage.rx + lz * stage.fx, 0, stage.z + lx * stage.rz + lz * stage.fz);
+  W3.stage = stage;
+  const dStage = (x, z) => Math.hypot(x - stage.x, z - stage.z);
+
   /* ---------------- snowy ground, flattened around the path ---------------- */
   const samples = []; for (let i = 0; i <= 260; i++) samples.push(P((i / 260) * LEN));
   const dPath = (x, z) => { let d = 1e9; for (const p of samples) { const dx = p.x - x, dz = p.z - z, q = dx * dx + dz * dz; if (q < d) d = q; } return Math.sqrt(d); };
   const dune = (x, z) => Math.sin(x * 0.09 + 1.3) * Math.cos(z * 0.07 + 0.4) * 0.9 + Math.sin(x * 0.21 + z * 0.15) * 0.35 + Math.sin(z * 0.045 + 2.2) * 0.7;
-  const hgt = (x, z) => dune(x, z) * smoothstep(3.6, 11, dPath(x, z));
+  const hgt = (x, z) => dune(x, z) * smoothstep(3.6, 11, dPath(x, z)) * smoothstep(SR + 2.2, SR + 7, dStage(x, z));
   W3.hgt = hgt;
   const gw = 170, gl = 290, gg = new THREE.PlaneGeometry(gw, gl, 68, 116);
   gg.rotateX(-Math.PI / 2); gg.translate(0, 0, -75);
@@ -7586,7 +7632,11 @@ function buildSnowland(root, N) {
   const lampB = new Batch(MAT.gold), glassB = new Batch(MAT.glow), lampGlow = [];
   W3.lampTile = [];
   for (let i = 3, sd = 1; i < N; i += 4, sd = -sd) {
-    const q = side(sTile(i), sd, 2.2), y0 = hgt(q.x, q.z);
+    const q = side(sTile(i), sd, 2.2);
+    // lanterns inside the clearing step sideways to its rim, where they light the dancers like footlights
+    const ax = q.x - stage.x, az = q.z - stage.z, al = ax * stage.fx + az * stage.fz, lat = ax * stage.rx + az * stage.rz, need = SR + 1.3;
+    if (Math.hypot(al, lat) < need) { const nl = Math.sign(lat || sd) * Math.sqrt(Math.max(0, need * need - al * al)); q.set(stage.x + nl * stage.rx + al * stage.fx, 0, stage.z + nl * stage.rz + al * stage.fz); }
+    const y0 = hgt(q.x, q.z);
     lampB.add(GEO.cyl(8), '#cdd8ec', TRS(q.x, y0 + 1.1, q.z, 0, 0, 0, 0.045, 2.2, 0.045));
     lampB.add(lathe([[0.2, 0], [0.2, 0.06], [0.09, 0.14], [0.06, 0.24]], 10, 0), '#cdd8ec', TRS(q.x, y0, q.z));
     glassB.add(roundBox(0.3, 0.42, 0.3, 0.05, 1), '#d5e4fa', TRS(q.x, y0 + 2.35, q.z));
@@ -7601,12 +7651,14 @@ function buildSnowland(root, N) {
 
   /* ---------------- snow-laden pines, built in chunks along the path so the camera can cull them ---------------- */
   const chunks = new Map();
-  const pine = (x, z, h) => {
-    const key = Math.floor(-z / 16); let b = chunks.get(key); if (!b) { b = new Batch(MAT.cloth); chunks.set(key, b); }
+  /* `ghost` draws the same random numbers but adds nothing, so clearing the stage leaves every other tree where it was */
+  const pine = (x, z, h, ghost) => {
+    const key = Math.floor(-z / 16); let b = chunks.get(key); if (!b && !ghost) { b = new Batch(MAT.cloth); chunks.set(key, b); }
     const y0 = hgt(x, z), k = h / 5, green = pick(['#2b5a4b', '#2f6552', '#27544a', '#34705a']);
-    b.add(GEO.cyl(7), '#6b4a3a', TRS(x, y0 + 0.5 * k, z, 0, 0, 0, 0.16 * k, 1.0 * k, 0.16 * k));
+    if (!ghost) b.add(GEO.cyl(7), '#6b4a3a', TRS(x, y0 + 0.5 * k, z, 0, 0, 0, 0.16 * k, 1.0 * k, 0.16 * k));
     for (let t = 0; t < 4; t++) {
       const R = (1.55 - t * 0.34) * k, ph = (1.45 - t * 0.06) * k, yb = y0 + (0.85 + t * 0.92) * k, f = 0.58, ry = rnd(0, 3);
+      if (ghost) continue;
       b.add(GEO.cone(9), green, TRS(x, yb + ph / 2, z, 0, ry, 0, R, ph, R));
       b.add(GEO.cone(9), '#f4f8ff', TRS(x, yb + ph * (1 - f) + (ph * f) / 2, z, 0, ry, 0, R * f * 1.07, ph * f, R * f * 1.07));
     }
@@ -7616,7 +7668,7 @@ function buildSnowland(root, N) {
     const s = rnd(-6, LEN - 4), sd = rnd(0, 1) < 0.5 ? -1 : 1, off = 4.6 + Math.pow(rnd(0, 1), 1.6) * 30;
     const q = side(clamp(s, 0, LEN), sd, off); q.x += rnd(-1.2, 1.2); q.z += rnd(-1.2, 1.2);
     if (dPath(q.x, q.z) < 4.2) continue;
-    pine(q.x, q.z, rnd(3.2, 7.8) * (off > 18 ? 1.25 : 1));
+    pine(q.x, q.z, rnd(3.2, 7.8) * (off > 18 ? 1.25 : 1), dStage(q.x, q.z) < SR + 3.4);
   }
   for (let i = 0; i < 70; i++) { const sd = i % 2 ? 1 : -1, x = sd * rnd(36, 70), z = rnd(-160, 20); pine(x, z, rnd(7, 11)); }
   for (const b of chunks.values()) { const m = b.build({ cast: false, receive: false }); m.matrixAutoUpdate = false; m.updateMatrix(); root.add(m); }
@@ -7624,8 +7676,8 @@ function buildSnowland(root, N) {
   /* ---------------- ice crystals beside the path ---------------- */
   const iceB = new Batch(MAT3.ice), crystal = lathe([[0, 0], [0.42, 0.06], [0.5, 0.9], [0.18, 1.5], [0, 1.9]], 6, 0);
   for (let s = 6; s < LEN - 8; s += rnd(5, 8)) {
-    const q = side(s, rnd(0, 1) < 0.5 ? -1 : 1, rnd(3.6, 6.5)), y0 = hgt(q.x, q.z);
-    for (let k = 0, n = 3 + rndi(0, 2); k < n; k++) { const a = rnd(0, TAU), d = rnd(0, 0.9), sc = rnd(0.5, 1.5); iceB.add(crystal, '#ffffff', TRS(q.x + Math.cos(a) * d, y0, q.z + Math.sin(a) * d, rnd(-0.25, 0.25), rnd(0, TAU), rnd(-0.25, 0.25), sc * 0.6, sc * 1.2, sc * 0.6)); }
+    const q = side(s, rnd(0, 1) < 0.5 ? -1 : 1, rnd(3.6, 6.5)), y0 = hgt(q.x, q.z), ghost = dStage(q.x, q.z) < SR + 2.6;
+    for (let k = 0, n = 3 + rndi(0, 2); k < n; k++) { const a = rnd(0, TAU), d = rnd(0, 0.9), sc = rnd(0.5, 1.5), m = TRS(q.x + Math.cos(a) * d, y0, q.z + Math.sin(a) * d, rnd(-0.25, 0.25), rnd(0, TAU), rnd(-0.25, 0.25), sc * 0.6, sc * 1.2, sc * 0.6); if (!ghost) iceB.add(crystal, '#ffffff', m); }
   }
   root.add(iceB.build({ cast: false }));
 
@@ -8158,6 +8210,9 @@ const Snow = {
     this.W = buildSnowland(root, this.N);
     this.fairy = buildSnowFairy(); this.fairy.root.visible = false; root.add(this.fairy.root);
     this.blob = makeBlob(0.42); this.blob.visible = false; root.add(this.blob);
+    UI.setLoading(0.6, '눈송이 무용수들이 준비하는 중…');
+    await nextFrame();
+    Dance.build(this.W);
     this.fog = new THREE.Fog('#c9d4f1', 26, 96);
     this.bg = new THREE.Color('#101a4a');
     UI.setLoading(0.8, '눈꽃 요정을 깨우는 중…');
@@ -8196,6 +8251,7 @@ const Snow = {
   leave() {
     if (!this.W) return;
     Rhythm.stop();
+    Dance.stop();
     UI.hide('rhythm');
     this.viewK = 0; camera.clearViewOffset();
     this.fairy.root.visible = false; this.blob.visible = false; this.followCam = false;
@@ -8207,8 +8263,9 @@ const Snow = {
     const W3 = this.W, N = this.N;
     Object.assign(G, { phase: 'none', stars: 0, time: 0, throws: 0, combat: false, markerAt: null });
     Rhythm.stop();
+    Dance.reset();
     this.goal = new Array(N).fill(0); this.cur = new Array(N).fill(0); this.lampOn = new Array(W3.lampTile.length).fill(false);
-    this.opened = 0; this.perfectRun = 0; this.final = null; this.pct = 0; this.sp = 0; this.shown = 0;
+    this.opened = 0; this.perfectRun = 0; this.final = null; this.pct = 0; this.sp = 0; this.shown = 0; this.holdActors = false;
     W3.resetPath();
     this.fs = this.goalS = W3.lead + 0.3;
     this.followCam = false; this.setView(0);
@@ -8306,11 +8363,14 @@ const Snow = {
     const W3 = this.W; if (!W3) return;
     const t = FX.uniforms.uTime.value;
     Rhythm.update(dt);
-    // the fairy glides towards the tile of the last snowflake; Clara and the prince follow her
-    const d = this.goalS - this.fs, step = Math.sign(d) * Math.min(Math.abs(d), (3.6 + Math.abs(d) * 2) * dt);
-    this.fs += step;
-    this.sp = damp(this.sp, Math.min(1, Math.abs(step) / Math.max(dt, 1e-4) / 3.2), 8, dt);
-    this.placeActors(dt);
+    if (Dance.active) Dance.update(dt);    // the snowflakes' waltz places and poses everyone itself
+    else if (!this.holdActors) {
+      // the fairy glides towards the tile of the last snowflake; Clara and the prince follow her
+      const d = this.goalS - this.fs, step = Math.sign(d) * Math.min(Math.abs(d), (3.6 + Math.abs(d) * 2) * dt);
+      this.fs += step;
+      this.sp = damp(this.sp, Math.min(1, Math.abs(step) / Math.max(dt, 1e-4) / 3.2), 8, dt);
+      this.placeActors(dt);
+    }
     // tiles ease towards their target, lanterns light beside opened tiles
     for (let i = 0; i < this.N; i++) {
       const g = this.goal[i], c = this.cur[i];
@@ -8321,7 +8381,7 @@ const Snow = {
     W3.sky.position.set(camera.position.x, 0, camera.position.z);
     W3.snowField.position.set(camera.position.x, 0, camera.position.z);
     if (W3.gate.open > 0.02 && Math.random() < dt * 14) { const g = W3.gate.group; _sb.set((Math.random() - 0.5) * 3.6, 0.3 + Math.random() * 3.6, 0.6); g.localToWorld(_sb); FX.add.spawn({ x: _sb.x, y: _sb.y, z: _sb.z, vy: 0.5, life: 1.2, size: 0.28, size1: 0, color: pick(['#ffd6e6', '#fff1c8', '#ffffff']), cell: CELL.sparkle, rot: rnd(0, 3) }); }
-    this.fairy.root.position.y = 0.3 + Math.sin(t * 1.6) * 0.05;
+    if (!Dance.active) this.fairy.root.position.y = 0.3 + Math.sin(t * 1.6) * 0.05;
     if (this.followCam) this.updateCamera(dt);
   },
   placeActors(dt) {
@@ -8357,13 +8417,13 @@ const Snow = {
     else camera.clearViewOffset();
   },
   applyView() { if (G.chapter === 3) this.setView(this.viewK); },
-  onPause(on) { if (!Rhythm.running) return; if (on) Rhythm.pause(); else Rhythm.resume(); },
+  onPause(on) { if (Dance.onPause(on)) return; if (!Rhythm.running) return; if (on) Rhythm.pause(); else Rhythm.resume(); },
   toWorld(lx, ly, lz, out) {
     const g = this.W.gate.group, c = Math.cos(g.rotation.y), s = Math.sin(g.rotation.y);
     return out.set(g.position.x + lx * c + lz * s, g.position.y + ly, g.position.z - lx * s + lz * c);
   },
 
-  /* ---------- finale: the fairy spins, the whole path lights up, the gate to the Sweets Kingdom opens ---------- */
+  /* ---------- after the waltz: first the snowflakes' corps de ballet, then the finale (the fairy spins, the whole path lights up, the gate opens) ---------- */
   async finale() {
     const W3 = this.W, N = this.N, f = this.fairy;
     G.phase = 'finale'; G.mode = 'cutscene'; G.locked = true;
@@ -8372,9 +8432,29 @@ const Snow = {
     this.pct = Math.round((this.opened / N) * 100);
     const st = Rhythm.stats; this.final = { perfect: st.perfect, good: st.good, miss: st.miss };
     tween(0.8, (k) => this.setView(1 - k), Ease.inOut);
+    // 1. as the waltz fades, the snow fairy invites everyone to the clearing before the gate
+    DanceMusic.preload();   // a recording kept on this device starts decoding now, while she speaks
+    const fp0 = W3.P(this.fs, _sa).clone(), c0 = W3.P(Math.max(0, this.fs - 7.5), _sb).clone();
+    await guard(Cam.to([c0.x, 3.6, c0.z], [fp0.x, 1.5, fp0.z], 1.1));
+    f.play('curtsy', 1.4);
+    await guard(UI.say('snowfairy', '들어 보세요, 클라라. 왈츠 소리에 숲의 눈송이들이 모두 깨어났어요!'));
+    await guard(UI.say('snowfairy', '길을 열어 준 답례로 눈송이들의 왈츠를 보여 드릴게요. 문 앞 빈터로 가요!'));
+    // 2. the snowflakes' waltz: a corps de ballet in the clearing (before the finale)
+    G.phase = 'dance';
+    await guard(Dance.perform());
+    G.phase = 'finale';
+    // 3. the finale: everyone strolls back onto the path while the camera finds the fairy; she spins and the whole path lights up
+    this.fs = this.goalS = W3.gateS - SNOW_DANCE.stage.back - 1.2;
+    const dolls = [clara, prince, f], from = dolls.map((d) => d.root.position.clone()), fromYaw = dolls.map((d) => d.root.rotation.y);
+    this.holdActors = true; this.sp = 0.5;
+    tween(1.4, (k) => {
+      this.placeActors(0.016);
+      dolls.forEach((d, i) => { d.root.position.lerpVectors(from[i], d.root.position, k); d.root.rotation.y = fromYaw[i] + angleDiff(fromYaw[i], d.root.rotation.y) * k; });
+      blobs.clara.position.set(clara.root.position.x, 0.02, clara.root.position.z); blobs.nut.position.set(prince.root.position.x, 0.02, prince.root.position.z); this.blob.position.set(f.root.position.x, 0.02, f.root.position.z);
+    }, Ease.inOut).then(() => { this.holdActors = false; this.sp = 0; });
     const fp = W3.P(this.fs, _sa).clone();
     const camTo = W3.P(Math.max(0, this.fs - 16), _sb).clone();
-    await guard(Cam.to([camTo.x, 8.5, camTo.z], [fp.x, 1.6, fp.z], 1.3));
+    await guard(Cam.to([camTo.x, 8.5, camTo.z], [fp.x, 1.6, fp.z], 1.4));
     f.play('spin', 2.4); Sound.sfxTransform();
     let sweep = 0;
     await guard(tween(2.2, (k) => {
@@ -8383,7 +8463,7 @@ const Snow = {
       while (sweep <= upto && sweep < N) { if (this.goal[sweep] < 1) this.setOpen(sweep, 1); sweep++; }
     }, Ease.linear));
     UI.setStars(N);
-    await guard(UI.say('narrator', '마지막 눈송이가 반짝 하고 터지자, 숲길 끝까지 환한 등불이 줄지어 켜졌어요.'));
+    await guard(UI.say('narrator', '눈송이들이 다시 눈발이 되어 흩날리자, 숲길 끝까지 환한 등불이 줄지어 켜졌어요.'));
     const gc = this.toWorld(-5.5, 3.0, -11, _sb).clone(), gl = this.toWorld(0, 2.6, 0, _sc).clone();
     await guard(Cam.to([gc.x, gc.y, gc.z], [gl.x, gl.y, gl.z], 1.5));
     Sound.sfxGate();
@@ -8439,7 +8519,936 @@ const Snow = {
 };
 
 /* leaving the page mid-song pauses the game, so the audio clock and the notes stop together */
-document.addEventListener('visibilitychange', () => { if (document.hidden && G.chapter === 3 && Rhythm.running && G.mode === 'play') Story.pause(); });
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden || G.chapter !== 3) return;
+  if ((Rhythm.running && G.mode === 'play') || (Dance.running && G.mode === 'cutscene')) Story.pause();
+});
+
+/* ---- 22-dancemusic.js ---- */
+/* =====================================================================
+   22 · DANCE MUSIC — the waltz the snowflakes dance to (finale of chapter III)
+   Built in: a waltz written for this game (the path-opening theme, now in E major, with a variation,
+   a hushed chorus and a finale) synthesised with WebAudio. It is not Tchaikovsky's score.
+   Optional: a recording the player keeps on their own device (SNOW_DANCE.local), stored only in that
+   browser and never part of the game files. Everything runs on the AudioContext clock.
+   ===================================================================== */
+
+/* chord → [bass, two bell tones for beats 2 and 3, three pad tones] */
+const DANCE_VOICE = {
+  E: ['E2', 'G#3+B3', 'E3+G#3+B3'], 'E/G#': ['G#2', 'B3+E4', 'G#3+B3+E4'], 'C#m': ['C#3', 'G#3+C#4', 'C#3+E3+G#3'],
+  A: ['A2', 'A3+C#4', 'A3+C#4+E4'], B7: ['B2', 'A3+D#4', 'B3+D#4+A4'], B: ['B2', 'B3+D#4', 'B3+D#4+F#4'],
+  'G#7': ['G#2', 'C4+F#4', 'G#3+C4+F#4'], 'F#m': ['F#2', 'A3+C#4', 'F#3+A3+C#4'], 'F#m7': ['F#2', 'A3+E4', 'F#3+A3+E4'],
+};
+/* the four parts match SNOW_DANCE.sections bar for bar (20 · 12 · 13 · 19) */
+const DANCE_SCORE = {
+  theme: {
+    melody: 'E6:3 | B5:1 G#5:1 B5:1 | C#6:3 | A5:1 C#6:1 E6:1 | D#6:1 C#6:1 B5:1 | C#6:1 B5:1 G#5:1 | A5:1 B5:1 C#6:1 | B5:3 | ' +
+      'E6:1 D#6:0.5 C#6:0.5 B5:1 | C#6:1 B5:0.5 A5:0.5 G#5:1 | A5:1 C#6:0.5 E6:0.5 F#6:1 | D#6:3 | ' +
+      'E6:1 G#6:1 E6:1 | F#6:1 D#6:1 B5:1 | C#6:0.5 D#6:0.5 E6:1 F#6:1 | G#6:2 F#6:1 | E6:1 C#6:1 A5:1 | B5:1 G#5:1 E5:1 | F#5:1 G#5:1 B5:1 | E6:3',
+    chords: ['E', 'E', 'C#m', 'A', 'B7', 'E', 'A', 'B7', 'E', 'C#m', 'A', 'B7', 'E', 'B', 'A', 'B7', 'E', 'E', 'B7', 'E'],
+  },
+  variation: {
+    melody: 'G#5:2 E5:1 | G#5:1 C#6:1 B5:1 | C6:2 G#5:1 | C#6:3 | C#6:1 E6:1 C#6:1 | A5:2 C#6:1 | B5:1 D#6:1 F#6:1 | E6:3 | ' +
+      'E6:1 C#6:1 A5:1 | F#6:1 E6:1 C#6:1 | D#6:1 E6:1 F#6:1 | D#6:2 B5:1',
+    chords: ['C#m', 'C#m', 'G#7', 'C#m', 'A', 'F#m', 'B7', 'E', 'A', 'F#m7', 'B7', 'B7'],
+  },
+  hush: {
+    choir: 'B5:6 | E5:3 G#5:3 | C#6:6 | B5:3 G#5:3 | A5:6 | A5:3 F#5:3 | G#5:3',
+    chords: ['E', 'E', 'C#m', 'C#m', 'A', 'A', 'E/G#', 'E/G#', 'F#m', 'F#m', 'B7', 'B7', 'E'],
+  },
+  finale: {
+    melody: 'E6:3 | B5:1 G#5:1 B5:1 | C#6:3 | A5:1 C#6:1 E6:1 | D#6:1 C#6:1 B5:1 | C#6:1 B5:1 G#5:1 | A5:1 B5:1 C#6:1 | B5:3 | ' +
+      'E6:1 G#6:1 E6:1 | F#6:1 D#6:1 B5:1 | C#6:0.5 D#6:0.5 E6:1 F#6:1 | G#6:2 F#6:1 | ' +
+      'G#6:1 E6:1 B5:1 | C#6:1 E6:1 G#6:1 | A6:1 F#6:1 C#6:1 | B5:1 D#6:1 A6:1 | G#6:3 | F#6:1 D#6:1 B5:1 | E6:3',
+    chords: ['E', 'E', 'C#m', 'A', 'B7', 'E', 'A', 'B7', 'E', 'B', 'A', 'B7', 'E', 'C#m', 'F#m7', 'B7', 'E', 'B7', 'E'],
+  },
+};
+
+/* ---------- one small IndexedDB store for the player's own recording (only in this browser) ---------- */
+const MediaStore = {
+  name: 'nutcracker-media', db: null, mem: {},
+  open() {
+    if (this.db) return Promise.resolve(this.db);
+    return new Promise((res) => {
+      try {
+        const rq = indexedDB.open(this.name, 1);
+        rq.onupgradeneeded = () => { rq.result.createObjectStore('files'); };
+        rq.onsuccess = () => { this.db = rq.result; res(this.db); };
+        rq.onerror = () => res(null);
+        rq.onblocked = () => res(null);
+      } catch (e) { res(null); }
+    });
+  },
+  async get(key) {
+    const db = await this.open();
+    if (!db) return this.mem[key] || null;
+    return new Promise((res) => {
+      try { const rq = db.transaction('files', 'readonly').objectStore('files').get(key); rq.onsuccess = () => res(rq.result || null); rq.onerror = () => res(null); } catch (e) { res(null); }
+    });
+  },
+  async put(key, val) {
+    this.mem[key] = val;
+    const db = await this.open();
+    if (!db) return false;
+    return new Promise((res) => {
+      try { const tx = db.transaction('files', 'readwrite'); tx.objectStore('files').put(val, key); tx.oncomplete = () => res(true); tx.onerror = () => res(false); } catch (e) { res(false); }
+    });
+  },
+  async del(key) {
+    delete this.mem[key];
+    const db = await this.open();
+    if (!db) return;
+    await new Promise((res) => { try { const tx = db.transaction('files', 'readwrite'); tx.objectStore('files').delete(key); tx.oncomplete = res; tx.onerror = res; } catch (e) { res(); } });
+  },
+};
+
+/* ---------- MP3 layout: where the audio starts and how many bytes a second takes (CBR MPEG-1 Layer III) ---------- */
+const MP3_KBPS = [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 0], MP3_SR = [44100, 48000, 32000];
+function mp3Header(b, p) {
+  if (p + 4 > b.length || b[p] !== 0xff || (b[p + 1] & 0xe0) !== 0xe0) return null;
+  const ver = (b[p + 1] >> 3) & 3, layer = (b[p + 1] >> 1) & 3, bi = b[p + 2] >> 4, si = (b[p + 2] >> 2) & 3, pad = (b[p + 2] >> 1) & 1;
+  if (ver !== 3 || layer !== 1 || !MP3_KBPS[bi] || si > 2) return null;       // MPEG-1, Layer III only
+  const kbps = MP3_KBPS[bi], sr = MP3_SR[si], len = Math.floor((144000 * kbps) / sr) + pad, mono = (b[p + 3] >> 6) === 3;
+  return { kbps, sr, len, mono };
+}
+function mp3Layout(b) {
+  let p = 0;
+  if (b[0] === 0x49 && b[1] === 0x44 && b[2] === 0x33) p = 10 + (((b[6] & 0x7f) << 21) | ((b[7] & 0x7f) << 14) | ((b[8] & 0x7f) << 7) | (b[9] & 0x7f)) + (b[5] & 0x10 ? 10 : 0);
+  for (let guard = 0; p + 4 < b.length && guard < 65536; p++, guard++) {
+    const h = mp3Header(b, p);
+    if (!h) continue;
+    const h2 = mp3Header(b, p + h.len);
+    if (!h2 || h2.sr !== h.sr) continue;
+    const tagAt = p + 4 + (h.mono ? 17 : 32), tag = String.fromCharCode(b[tagAt], b[tagAt + 1], b[tagAt + 2], b[tagAt + 3]);
+    if (tag === 'Xing') return null;                       // variable bitrate: not sliced, decoded whole instead
+    const first = tag === 'Info' ? p + h.len : p;           // an "Info" frame carries no sound
+    return { audioStart: first, bytesPerSec: (h.kbps * 1000) / 8, frameBytes: (144000 * h.kbps) / h.sr, frameSec: 1152 / h.sr, sr: h.sr };
+  }
+  return null;
+}
+
+const DanceMusic = {
+  source: 'builtin', rate: 1, running: false, paused: false, clock: 'audio', token: 0, lastT: 0,
+  t0: 0, perfT0: 0, perfPausedAt: 0, bars: [], sectionBars: [0, 20, 32, 45, 64], endT: 0,
+  events: [], evIdx: 0, bus: null, src: null, buf: null, bufOffset: 0, pumpTimer: 0,
+  local: null, localBuf: null, localKey: '', note: '', pending: null,
+
+  /* bar grid of the built-in performance: steady tempo */
+  builtinGrid() {
+    const D = SNOW_DANCE, bar = (3 * 60) / D.builtinBpm, n = D.sections.reduce((a, b) => a + b, 0);
+    return { bars: Array.from({ length: n + 1 }, (_, k) => k * bar), endT: n * bar + D.tailSec };
+  },
+  /* bar grid of the recording: every third measured beat is a bar line */
+  localGrid() {
+    const L = SNOW_DANCE.local, bars = [];
+    for (let i = 0; i < L.beats.length; i += 3) bars.push(L.beats[i]);
+    return { bars, endT: L.end - L.start };
+  },
+  sectionStarts() { const s = [0]; for (const n of SNOW_DANCE.sections) s.push(s[s.length - 1] + n); return s; },
+
+  /* ---------- the player's own recording ---------- */
+  async loadLocalInfo() {
+    const rec = await MediaStore.get('danceAudio');
+    this.local = rec && rec.blob ? { name: rec.name || '', size: rec.blob.size } : null;
+    return this.local;
+  },
+  matches(size) { const L = SNOW_DANCE.local; return Math.abs(size - L.sizeBytes) / L.sizeBytes <= L.sizeTolerance; },
+  async setLocalFile(file) {
+    if (!file) return { ok: false, reason: 'none' };
+    if (!this.matches(file.size)) return { ok: false, reason: 'mismatch' };
+    await MediaStore.put('danceAudio', { blob: file, name: file.name, savedAt: Date.now() });
+    this.local = { name: file.name, size: file.size }; this.localBuf = null; this.localKey = ''; this.pending = null;
+    return { ok: true };
+  },
+  async clearLocal() { this.local = null; this.localBuf = null; this.localKey = ''; this.pending = null; await MediaStore.del('danceAudio'); },
+  decode(ab) {
+    const c = Sound.ctx;
+    return new Promise((res, rej) => { try { const p = c.decodeAudioData(ab, res, rej); if (p && p.catch) p.catch(rej); } catch (e) { rej(e); } });
+  },
+  /* decode only the excerpt (plus a little lead-in for the decoder) instead of the whole 6½ minutes */
+  async decodeLocal(blob) {
+    const L = SNOW_DANCE.local, lead = 1.5;
+    const head = new Uint8Array(await blob.slice(0, Math.min(blob.size, 768 * 1024)).arrayBuffer());
+    const lay = mp3Layout(head);
+    if (lay) {
+      let pos = lay.audioStart + Math.floor(Math.max(0, L.start - lead) * lay.bytesPerSec);
+      const scan = new Uint8Array(await blob.slice(pos, Math.min(blob.size, pos + 16384)).arrayBuffer());
+      let k = 0; for (; k + 4 < scan.length; k++) { const h = mp3Header(scan, k); if (h && h.sr === lay.sr && mp3Header(scan, k + h.len)) break; }
+      pos += k;
+      const t0 = Math.round((pos - lay.audioStart) / lay.frameBytes) * lay.frameSec;
+      const buf = await this.decode(await blob.slice(pos, blob.size).arrayBuffer());
+      return { buf, offset: L.start - t0 };
+    }
+    const buf = await this.decode(await blob.arrayBuffer());
+    return { buf, offset: L.start };
+  },
+
+  /* start decoding the player's recording early (while the fairy speaks), so the curtain does not wait for it */
+  preload() {
+    if (this.pending) return this.pending;
+    this.pending = (async () => {
+      const rec = await MediaStore.get('danceAudio');
+      if (!rec || !rec.blob || !Sound.ctx) return null;
+      if (!this.matches(rec.blob.size)) return { mismatch: true };
+      const key = `${rec.name}:${rec.blob.size}:${rec.savedAt || 0}`;
+      if (this.localBuf && this.localKey === key) return { ok: true };
+      try { this.localBuf = await this.decodeLocal(rec.blob); this.localKey = key; return { ok: true }; } catch (e) { this.localBuf = null; this.localKey = ''; return { error: true }; }
+    })();
+    return this.pending;
+  },
+  /* ---------- choose the music for this performance ---------- */
+  async prepare() {
+    this.stop(true);
+    Sound.init();
+    this.note = ''; this.source = 'builtin';
+    let grid = this.builtinGrid();
+    const r = await this.preload(); this.pending = null;
+    if (r && r.ok && this.localBuf) { this.source = 'local'; grid = this.localGrid(); }
+    else if (r && r.mismatch) this.note = '내 기기의 음원이 박자 지도와 맞지 않아 기본 연주로 공연해요';
+    else if (r && r.error) this.note = '내 기기의 음원을 열지 못해 기본 연주로 공연해요';
+    this.bars = grid.bars; this.endT = grid.endT; this.sectionBars = this.sectionStarts();
+    return { source: this.source, note: this.note };
+  },
+
+  /* ---------- clock: score seconds since the first bar (audio time, or wall time without sound) ---------- */
+  now() { return this.clock === 'audio' && Sound.ctx ? Sound.ctx.currentTime : performance.now() / 1000; },
+  time() {
+    if (!this.running && !this.paused) return this.lastT || 0;
+    if (this.clock === 'audio') return Math.max(0, (Sound.ctx.currentTime - this.t0) * this.rate);
+    const n = this.paused ? this.perfPausedAt : performance.now() / 1000;
+    return Math.max(0, (n - this.perfT0) * this.rate);
+  },
+  barAt(t) {
+    const B = this.bars, n = B.length - 1;
+    if (!n) return 0;
+    if (t <= B[0]) return (t - B[0]) / (B[1] - B[0]);
+    if (t >= B[n]) return n + (t - B[n]) / (B[n] - B[n - 1]);
+    let lo = 0, hi = n;
+    while (hi - lo > 1) { const m = (lo + hi) >> 1; if (B[m] <= t) lo = m; else hi = m; }
+    return lo + (t - B[lo]) / (B[lo + 1] - B[lo]);
+  },
+  timeOfBar(b) {
+    const B = this.bars, n = B.length - 1, i = clamp(Math.floor(b), 0, n - 1);
+    return B[i] + (b - i) * (B[i + 1] - B[i]);
+  },
+
+  start(lead = 0.2) {
+    const my = ++this.token;
+    const c = Sound.ctx;
+    this.clock = c && c.state === 'running' ? 'audio' : 'perf';
+    this.running = true; this.paused = false; this.lastT = 0;
+    if (this.clock === 'perf') { this.perfT0 = performance.now() / 1000 + lead; return my; }
+    this.t0 = c.currentTime + lead;
+    this.bus = c.createGain(); this.bus.gain.value = 0.0001; this.bus.connect(Sound.musicBus);
+    this.bus.gain.setValueAtTime(0.0001, this.t0 - 0.05); this.bus.gain.linearRampToValueAtTime(1, this.t0 + 0.08);
+    if (this.source === 'local' && this.localBuf) {
+      const src = c.createBufferSource(); src.buffer = this.localBuf.buf; src.playbackRate.value = this.rate; src.connect(this.bus);
+      src.start(this.t0, Math.max(0, this.localBuf.offset)); this.src = src;
+      this.events = [];
+      const fadeAt = this.t0 + (this.endT - 1.2) / this.rate;
+      this.bus.gain.setValueAtTime(1, fadeAt); this.bus.gain.linearRampToValueAtTime(0.0001, fadeAt + 1.1 / this.rate);
+    } else {
+      this.events = this.buildEvents(); this.evIdx = 0;
+      this.dynamics();
+    }
+    this.pump();
+    clearInterval(this.pumpTimer); this.pumpTimer = setInterval(() => this.pump(), 40);
+    return my;
+  },
+  /* section loudness of the built-in performance */
+  dynamics() {
+    const g = this.bus.gain, at = (bar) => this.t0 + this.timeOfBar(bar) / this.rate, S = this.sectionBars;
+    g.setValueAtTime(1, at(S[1]) - 0.4); g.linearRampToValueAtTime(0.88, at(S[1]));
+    g.setValueAtTime(0.88, at(S[2]) - 0.4); g.linearRampToValueAtTime(0.92, at(S[2]));
+    g.setValueAtTime(0.92, at(S[3])); g.linearRampToValueAtTime(1.18, at(S[4] - 2));
+  },
+  pause() {
+    if (!this.running || this.paused) return;
+    this.paused = true;
+    if (this.clock === 'audio') { Sound.hold = true; Sound.ctx.suspend().catch(() => {}); } else this.perfPausedAt = performance.now() / 1000;
+  },
+  resume() {
+    if (!this.paused) return;
+    this.paused = false;
+    if (this.clock === 'audio') { Sound.hold = false; Sound.ctx.resume().catch(() => {}); } else this.perfT0 += performance.now() / 1000 - this.perfPausedAt;
+  },
+  /* fade out and stop; keeps the current time readable for the dancers' last pose */
+  stop(quick) {
+    this.token++;
+    if (this.running || this.paused) this.lastT = this.time();
+    clearInterval(this.pumpTimer); this.pumpTimer = 0;
+    if (this.paused && this.clock === 'audio' && Sound.ctx) { Sound.hold = false; Sound.ctx.resume().catch(() => {}); }
+    this.running = false; this.paused = false;
+    const bus = this.bus, src = this.src, c = Sound.ctx; this.bus = null; this.src = null; this.events = []; this.evIdx = 0;
+    if (bus && c) {
+      const t = c.currentTime;
+      try { bus.gain.cancelScheduledValues(t); bus.gain.setValueAtTime(bus.gain.value, t); bus.gain.linearRampToValueAtTime(0.0001, t + (quick ? 0.12 : 0.7)); } catch (e) { /* ignore */ }
+      setTimeout(() => { try { if (src) src.stop(); bus.disconnect(); } catch (e) { /* already gone */ } }, quick ? 300 : 1000);
+    }
+  },
+
+  /* ---------- the built-in performance ---------- */
+  buildEvents() {
+    const ev = [], spb = (this.bars[1] - this.bars[0]) / 3, S = this.sectionBars;
+    const add = (bar, beat, e) => { e.t = this.timeOfBar(bar) + beat * spb; ev.push(e); };
+    const tones = (s) => s.split('+').map(noteFreq);
+    const melody = (str, bar0, vol, dbl) => {
+      for (const e of parseSeq(str).ev) {
+        const b = bar0 + Math.floor(e.beat / 3), bt = e.beat % 3;
+        add(b, bt, { kind: 'bell', f: e.freqs[0], dur: Math.max(0.7, Math.min(2.2, e.dur * spb * 2.4)), vol });
+        if (dbl) add(b, bt, { kind: 'bell', f: e.freqs[0] / 2, dur: Math.max(0.6, Math.min(1.8, e.dur * spb * 2)), vol: dbl });
+      }
+    };
+    const waltz = (chords, bar0, o) => chords.forEach((ch, i) => {
+      const [bass, up, pad] = DANCE_VOICE[ch], b = bar0 + i;
+      add(b, 0, { kind: 'pluck', f: noteFreq(bass), dur: spb * 1.6, vol: o.bass });
+      if (o.low) add(b, 0, { kind: 'pluck', f: noteFreq(bass) / 2, dur: spb * 2, vol: o.low });
+      if (o.beats) for (const k of [1, 2]) tones(up).forEach((f) => add(b, k, { kind: 'bellLow', f, vol: o.beats }));
+      if (o.pad) add(b, 0, { kind: 'pad', fs: tones(pad), dur: spb * 3.05, vol: o.pad });
+      if (o.spark && i % o.spark === o.spark - 1) add(b, 2.5, { kind: 'sparkle' });
+    });
+    /* a harp sweep up the chord, leading into a bar (or, at the very start, rising through its first beat) */
+    const gliss = (bar, ch, vol, from = -0.9) => { const p = tones(DANCE_VOICE[ch][2]), t = p.concat(p.map((f) => f * 2), p.map((f) => f * 4)); t.forEach((f, k) => add(bar, from + k * 0.08, { kind: 'bell', f, dur: 1.2, vol })); };
+
+    // theme
+    gliss(S[0], 'E', 0.04, 0);
+    melody(DANCE_SCORE.theme.melody, S[0], 0.17);
+    waltz(DANCE_SCORE.theme.chords, S[0], { bass: 0.24, beats: 0.05, spark: 2 });
+    // variation: softer, with a string pad underneath
+    melody(DANCE_SCORE.variation.melody, S[1], 0.14);
+    waltz(DANCE_SCORE.variation.chords, S[1], { bass: 0.2, beats: 0.042, pad: 0.016, spark: 4 });
+    // hush: a wordless choir over held chords, celesta flakes falling
+    for (const e of parseSeq(DANCE_SCORE.hush.choir).ev) add(S[2] + Math.floor(e.beat / 3), e.beat % 3, { kind: 'choir', f: e.freqs[0], dur: e.dur * spb * 1.02, vol: 0.05 });
+    waltz(DANCE_SCORE.hush.chords, S[2], { bass: 0.12, pad: 0.03 });
+    DANCE_SCORE.hush.chords.forEach((ch, i) => {
+      const t = tones(DANCE_VOICE[ch][2]);
+      add(S[2] + i, 1.5, { kind: 'bell', f: t[(i * 2) % 3] * 4, dur: 1.4, vol: 0.035 });
+      add(S[2] + i, 2.5, { kind: 'bell', f: t[(i * 2 + 1) % 3] * 4, dur: 1.4, vol: 0.03 });
+    });
+    // finale: full, louder, the theme doubled an octave down, then the cadence and the last chord
+    gliss(S[3], 'E', 0.05); gliss(S[3] + 8, 'E', 0.05);
+    melody(DANCE_SCORE.finale.melody, S[3], 0.18, 0.07);
+    waltz(DANCE_SCORE.finale.chords.slice(0, -1), S[3], { bass: 0.28, low: 0.14, beats: 0.06, spark: 1 });
+    DANCE_SCORE.finale.chords.slice(8, -1).forEach((ch, i) => add(S[3] + 8 + i, 0, { kind: 'pad', fs: tones(DANCE_VOICE[ch][2]), dur: spb * 3.05, vol: 0.022 + i * 0.002 }));
+    const last = S[4] - 1;
+    add(last - 1, 0, { kind: 'swell', dur: spb * 3 });
+    ['E4', 'G#4', 'B4', 'E5', 'G#5', 'B5', 'E6'].forEach((n, k) => add(last, k * 0.1, { kind: 'bell', f: noteFreq(n), dur: 3.4, vol: 0.11 }));
+    add(last, 0, { kind: 'pluck', f: noteFreq('E2'), dur: 1.6, vol: 0.3 }); add(last, 0, { kind: 'pluck', f: noteFreq('E1'), dur: 2.2, vol: 0.18 });
+    add(last, 0, { kind: 'pad', fs: tones('E3+G#3+B3+E4'), dur: 3.6, vol: 0.05 });
+    add(last, 0, { kind: 'timp', dur: 2.6 });
+    return ev.sort((a, b) => a.t - b.t);
+  },
+  pump() {
+    if (!this.running || this.paused || this.clock !== 'audio' || !this.bus) return;
+    // handed over 1.5 s ahead of the audio clock: a slow frame (or a busy phone) never leaves a gap in the music
+    const c = Sound.ctx, ahead = c.currentTime + 1.5;
+    while (this.evIdx < this.events.length) {
+      const e = this.events[this.evIdx], at = this.t0 + e.t / this.rate;
+      if (at > ahead) break;
+      this.evIdx++;
+      if (at >= c.currentTime - 0.05) this.play(e, at);
+    }
+  },
+  play(e, at) {
+    const bus = this.bus; if (!bus) return;
+    const r = this.rate;
+    switch (e.kind) {
+      case 'bell': Sound.bell(at, e.f, e.dur / Math.sqrt(r), e.vol, bus); break;
+      case 'bellLow': Sound.bell(at, e.f, 0.8, e.vol, bus, 0.4); break;
+      case 'pluck': Sound.pluck(at, e.f, e.dur / r, e.vol, bus); break;
+      case 'sparkle': Sound.noiseHit(at, 0.05, 0.03, 'highpass', 7000, 0.8, bus); Sound.bell(at, noteFreq('B6'), 0.6, 0.025, bus, 1.6); break;
+      case 'pad': e.fs.forEach((f) => this.pad(at, f, e.dur / r, e.vol, bus)); break;
+      case 'choir': this.choir(at, e.f, e.dur / r, e.vol, bus); break;
+      case 'swell': Sound.noiseHit(at, e.dur / r, 0.05, 'highpass', 5200, 0.6, bus, 9000); break;
+      case 'timp': Sound.tone(at, 84, 78, e.dur / r, 0.2, 'sine', bus); Sound.noiseHit(at, 2.4 / r, 0.045, 'highpass', 6500, 0.4, bus); break;
+    }
+  },
+  /* soft strings: two detuned saws through a low-pass, slow bow */
+  pad(t, f, dur, vol, dest) {
+    const c = Sound.ctx; if (!c || !f) return;
+    const a = Math.min(0.5, dur * 0.35), rel = 0.6, g = c.createGain();
+    g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + a); g.gain.setValueAtTime(vol, t + Math.max(a, dur - 0.05)); g.gain.linearRampToValueAtTime(0.0001, t + dur + rel);
+    const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = Math.min(3000, 700 + f * 1.4); lp.Q.value = 0.4;
+    lp.connect(g); g.connect(dest);
+    for (const det of [-7, 7]) { const o = c.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f; o.detune.value = det; o.connect(lp); o.start(t); o.stop(t + dur + rel + 0.05); }
+  },
+  /* a wordless "ah": a softened saw with a vowel formant and a little vibrato */
+  choir(t, f, dur, vol, dest) {
+    const c = Sound.ctx; if (!c || !f) return;
+    const a = Math.min(0.45, dur * 0.3), rel = 0.7, g = c.createGain();
+    g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + a); g.gain.setValueAtTime(vol, t + Math.max(a, dur - 0.1)); g.gain.linearRampToValueAtTime(0.0001, t + dur + rel);
+    const form = c.createBiquadFilter(); form.type = 'peaking'; form.frequency.value = 900; form.Q.value = 2.2; form.gain.value = 9;
+    const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2600;
+    form.connect(lp); lp.connect(g); g.connect(dest);
+    const vib = c.createOscillator(), vg = c.createGain(); vib.frequency.value = 5.2; vg.gain.value = f * 0.006; vib.connect(vg);
+    for (const [type, det, lv] of [['sawtooth', -5, 0.6], ['triangle', 5, 1]]) {
+      const o = c.createOscillator(), og = c.createGain(); o.type = type; o.frequency.value = f; o.detune.value = det; og.gain.value = lv;
+      vg.connect(o.frequency); o.connect(og); og.connect(form); o.start(t); o.stop(t + dur + rel + 0.05);
+    }
+    vib.start(t); vib.stop(t + dur + rel + 0.05);
+  },
+};
+
+/* ---- 23-snowdance.js ---- */
+/* =====================================================================
+   23 · THE SNOWFLAKES' WALTZ — a corps de ballet before the gate (finale of chapter III)
+   The corps is drawn instanced: one draw call per body part for all the dancers together.
+   Steps and formations follow the music's bar clock (DanceMusic), never the frame time,
+   so they stay on the beat at any frame rate and stop together with the music.
+   ===================================================================== */
+
+/* ---------------- ballet arms and steps on the doll rig ---------------- */
+const ARMS = {                 // shoulder x, shoulder z (left), shoulder x, shoulder z (right), elbows
+  low: [-0.15, 0.32, -0.15, -0.32, -0.42, -0.42],
+  first: [-1.1, 0.42, -1.1, -0.42, -0.72, -0.72],
+  second: [-0.2, 1.35, -0.2, -1.35, -0.28, -0.28],
+  fifth: [-0.08, 2.75, -0.08, -2.75, -0.8, -0.8],
+  upL: [-0.08, 2.7, -0.2, -1.3, -0.78, -0.3],
+  upR: [-0.2, 1.3, -0.08, -2.7, -0.3, -0.78],
+  arab: [-1.9, 0.5, 0.35, -1.2, -0.18, -0.25],
+};
+function newPose(P) {
+  P = P || {};
+  return Object.assign(P, { by: 0, lean: 0, twist: 0, roll: 0, spin: 0, lsx: -0.15, lsz: 0.32, rsx: -0.15, rsz: -0.32, lel: -0.42, rel: -0.42, llx: 0, llz: 0.05, rlx: 0, rlz: -0.05, hx: 0, hy: 0, hz: 0, flare: 1 });
+}
+function setArms(P, name, k = 1) {
+  const A = ARMS[name];
+  P.lsx = lerp(P.lsx, A[0], k); P.lsz = lerp(P.lsz, A[1], k); P.rsx = lerp(P.rsx, A[2], k); P.rsz = lerp(P.rsz, A[3], k); P.lel = lerp(P.lel, A[4], k); P.rel = lerp(P.rel, A[5], k);
+}
+function applyPose(d, P, t) {
+  d.body.position.y = d.C.hip + P.by;
+  d.body.rotation.set(P.lean, P.twist, P.roll);
+  d.armL.sh.rotation.set(P.lsx, 0, P.lsz); d.armR.sh.rotation.set(P.rsx, 0, P.rsz);
+  d.armL.el.rotation.x = P.lel; d.armR.el.rotation.x = P.rel;
+  d.legL.rotation.set(P.llx, 0, P.llz); d.legR.rotation.set(P.rlx, 0, P.rlz);
+  d.head.rotation.set(P.hx - P.lean * 0.4, P.hy, P.hz);
+  d.skirt.scale.set(P.flare, 1, P.flare); d.skirt.rotation.z = -P.roll * 1.5;
+  if (d.wings) { const f = Math.sin(t * 9) * 0.25; d.wings.children[0].rotation.y = -0.5 - f; d.wings.children[1].rotation.y = 0.5 + f; }
+}
+const Step = {
+  /* balancé: down on one, up on two and three, swaying to alternate sides with the arms following */
+  balance(P, f, n, dir = 1) {
+    const s = (n % 2 ? 1 : -1) * dir, down = f < 0.34 ? Math.sin((f / 0.34) * Math.PI) : 0, up = f >= 0.34 ? Math.sin(((f - 0.34) / 0.66) * Math.PI) : 0;
+    P.by += -0.06 * down + 0.035 * up;
+    P.roll += 0.07 * s * Math.sin(f * Math.PI); P.twist += 0.16 * s; P.hy += 0.28 * s; P.hz += 0.1 * s;
+    const kick = 0.22 * Math.sin(Math.min(1, f / 0.34) * Math.PI);
+    if (s > 0) P.llz += kick; else P.rlz -= kick;
+    setArms(P, s > 0 ? 'upL' : 'upR', 0.85);
+  },
+  /* bourrée: tiny quick steps on pointe */
+  bourree(P, t, arms = 'second') {
+    const w = Math.sin(t * 24);
+    P.llx += 0.1 * w; P.rlx -= 0.1 * w; P.by += 0.03 + 0.012 * Math.abs(w);
+    setArms(P, arms, 0.9);
+  },
+  /* one turn with the working foot at the knee (k: 0 → 1 over the turn) */
+  pirouette(P, k, arms = 'first') {
+    const e = Math.sin(clamp(k, 0, 1) * Math.PI);
+    P.spin += Ease.inOut(clamp(k, 0, 1)) * TAU;
+    P.rlx = lerp(P.rlx, -0.78, e); P.rlz = lerp(P.rlz, -0.38, e);
+    P.by += 0.045 * e; P.flare = lerp(P.flare, 1.22, e);
+    setArms(P, arms, e);
+  },
+  arabesque(P, e) {
+    P.rlx = lerp(P.rlx, 1.15, e); P.lean += 0.3 * e; P.by += 0.03 * e; P.hx -= 0.12 * e;
+    setArms(P, 'arab', e);
+  },
+  /* grand jeté: a leap with the legs split (k: 0 → 1 over the leap) */
+  jete(P, k) {
+    const h = Math.sin(clamp(k, 0, 1) * Math.PI);
+    P.by += 0.45 * h; P.llx = lerp(P.llx, -1.25, h); P.rlx = lerp(P.rlx, 1.0, h);
+    P.lean -= 0.06 * h; P.flare = lerp(P.flare, 1.16, h);
+    setArms(P, 'second', h);
+  },
+  kneel(P, e) { P.by -= 0.34 * e; P.llx = lerp(P.llx, -1.3, e); P.rlx = lerp(P.rlx, 1.4, e); P.lean += 0.14 * e; P.flare = lerp(P.flare, 1.14, e); },
+  reverence(P, e) { P.by -= 0.1 * e; P.rlx = lerp(P.rlx, 0.55, e); P.hx += 0.3 * e; P.lean += 0.12 * e; P.flare = lerp(P.flare, 1.08, e); setArms(P, 'second', e * 0.7); },
+  /* slow port de bras, like snow drifting down */
+  float(P, t, k = 1) {
+    const u = 0.5 + 0.5 * Math.sin(t * 1.3);
+    setArms(P, 'second', k);
+    P.lsz = lerp(P.lsz, lerp(1.2, 2.6, u), k); P.rsz = lerp(P.rsz, -lerp(2.6, 1.2, u), k); P.hz += 0.1 * Math.sin(t * 1.3) * k;
+  },
+};
+
+/* ---------------- formations (stage coordinates: x across, z towards the gate; yaw 0 faces the gate) ----------------
+   Each takes a slot (0 … n-1). At every change of formation the dancers are matched to the nearest free slots,
+   so nobody has to cross the stage through the others. */
+const FORM = {
+  wings(s, n, b, o) { const side = s % 2 ? 1 : -1, m = n / 2, j = Math.floor(s / 2); o.x = side * 10.5; o.z = lerp(-1.6, 3.6, j / (m - 1)); o.yaw = side > 0 ? -Math.PI / 2 : Math.PI / 2; return o; },
+  /* one line through the centre that turns like the sails of a windmill */
+  windmill(s, n, b, o) {
+    const side = s % 2 ? 1 : -1, m = n / 2, j = Math.floor(s / 2), th = 0.62 + Math.PI * smoothstep(4.6, 12, b), a = th + (side > 0 ? 0 : Math.PI), r = 1.3 + j * (4.05 / (m - 1));
+    o.x = Math.sin(a) * r; o.z = Math.cos(a) * r; o.yaw = Math.PI; return o;
+  },
+  circle(s, n, b, o) { const a = 0.62 + (TAU / n) * (s - (n - 1) / 2) + (b - 12) * 0.1; o.x = Math.sin(a) * 4.2; o.z = Math.cos(a) * 4.2; o.yaw = Math.atan2(-o.x, -o.z); return o; },
+  /* six arms of a snowflake, two dancers each, slowly turning */
+  star(s, n, b, o) { const m = n / 2, k = Math.floor(s / 2), a = 1.42 + (TAU / m) * k + (b - 20) * (Math.PI / 3 / 12), r = s % 2 ? 4.4 : 2.2; o.x = Math.sin(a) * r; o.z = Math.cos(a) * r; o.yaw = a; return o; },
+  /* a horseshoe open towards the audience, everyone turned to the snow fairy (as a corps frames a soloist on stage) */
+  ring(s, n, b, o) { const a = -2.25 + (4.5 * s) / (n - 1); o.x = Math.sin(a) * 4.6; o.z = Math.cos(a) * 4.6 + 0.4; o.yaw = Math.atan2(-o.x, -(o.z - 0.25)); return o; },
+  /* two circles turning against each other */
+  counter(s, n, b, o) {
+    const m = n / 2, k = Math.floor(s / 2), inner = s % 2 === 0, d = Math.max(0, b - 45);
+    const a = inner ? 2.47 + (TAU / m) * k + d * 0.5 : 2.47 + (TAU / m) * k + Math.PI / m - d * 0.42, r = inner ? 2.4 : 4.6;
+    o.x = Math.sin(a) * r; o.z = Math.cos(a) * r; o.yaw = a + (inner ? Math.PI / 2 : -Math.PI / 2); return o;
+  },
+  /* a V that opens towards the gate, the snow fairy at its point */
+  wedge(s, n, b, o) { const side = s % 2 ? 1 : -1, m = n / 2, j = Math.floor(s / 2), u = j / (m - 1); o.x = side * (1.4 + 3.0 * u); o.z = -0.6 + 3.9 * u; o.yaw = Math.PI; return o; },
+  /* everyone whirls in towards the snow fairy, faster and faster */
+  spiral(s, n, b, o) {
+    const k = smoothstep(57, 60.6, b), d = Math.max(0, b - 57), a = 0.3 + (TAU / n) * s + d * d * 0.18 + d * 0.3, r = lerp(4.4, 2.05 + 0.35 * (s % 2), k);
+    o.x = Math.sin(a) * r; o.z = Math.cos(a) * r; o.yaw = a + Math.PI / 2; return o;
+  },
+  /* the last picture: a kneeling arc and a standing arc behind her, both open towards the audience */
+  tableau(s, n, b, o) {
+    const m = n / 2, k = Math.floor(s / 2), inner = s % 2 === 0, span = inner ? 3.6 : 4.4, r = inner ? 2.3 : 3.7, a = -span / 2 + (span * k) / (m - 1);
+    o.x = Math.sin(a) * r; o.z = Math.cos(a) * r + 0.3; o.yaw = Math.atan2(-o.x, -(o.z - 0.25)); return o;
+  },
+};
+/* bars: theme 0–20 · variation 20–32 · hush 32–45 · finale 45–64 */
+const DANCE_PLAN = [
+  { b: -99, f: 'windmill', enter: true },
+  { b: 12, f: 'circle', tr: 2.2 },
+  { b: 20, f: 'star', tr: 2.2 },
+  { b: 32, f: 'ring', tr: 2.2, cart: true },
+  { b: 45, f: 'counter', tr: 1.6, cart: true },
+  { b: 51, f: 'wedge', tr: 1.8, cart: true },
+  { b: 57, f: 'spiral', tr: 1.2, cart: true },
+  { b: 61, f: 'tableau', tr: 1.6, cart: true },
+];
+
+/* steps of the corps: g is the dancer's group (inner/outer ring, or one line/the other) */
+function corpsPose(g, b, t, P) {
+  const n = Math.floor(b), f = b - n;
+  if (b < 4.6) { Step.bourree(P, t + g * 0.4, 'second'); P.hz += 0.08 * Math.sin(t * 2 + g); return; }
+  if (b < 12) { Step.balance(P, f, n, g ? -1 : 1); return; }
+  if (b < 20) {
+    if (n === 15 || n === 19) { Step.pirouette(P, f, 'fifth'); return; }
+    if (b < 14.2) { Step.bourree(P, t, 'second'); return; }
+    Step.balance(P, f, n, 1); return;
+  }
+  if (b < 32) {
+    if (b < 22.2) { Step.bourree(P, t, 'fifth'); return; }
+    if (n === 31) { Step.pirouette(P, f, 'fifth'); return; }
+    if (((n - 22) % 2 === 0) === (g === 0)) Step.arabesque(P, Math.sin(Math.min(1, f * 1.15) * Math.PI)); else Step.bourree(P, t, 'second');
+    return;
+  }
+  if (b < 45) { Step.kneel(P, smoothstep(33.5, 36, b) * (1 - smoothstep(41.5, 44, b))); Step.float(P, t + g * 0.6, 1); return; }
+  if (b < 51) {
+    if (b < 46.6) { Step.bourree(P, t, 'second'); return; }
+    if ((n - 45) % 2 === 1) Step.pirouette(P, f, 'first'); else Step.balance(P, f, n, g ? -1 : 1);
+    return;
+  }
+  if (b < 57) {
+    if (b < 52.8) { Step.bourree(P, t, 'second'); return; }
+    if (((n - 53) % 2 === 0) === (g === 0)) Step.jete(P, f); else Step.balance(P, f, n, 1);
+    return;
+  }
+  if (b < 61) { Step.pirouette(P, (f * 2) % 1, 'fifth'); return; }
+  const e = smoothstep(61.2, 62.8, b);
+  if (g === 0) { Step.kneel(P, e); setArms(P, 'fifth', e); } else { setArms(P, 'upL', e); P.rlx = lerp(P.rlx, 0.35, e); P.by += 0.03 * e; }
+}
+/* the snow fairy dances the solo at the centre */
+function soloPose(b, t, P, o) {
+  const n = Math.floor(b), f = b - n;
+  o.x = 0; o.z = 0.25; o.yaw = Math.PI;
+  if (b < 4.6) {
+    Step.reverence(P, smoothstep(0.3, 1.2, b) * (1 - smoothstep(2.4, 3.4, b))); setArms(P, 'second', 0.6);
+    if (b > 3.2) Step.pirouette(P, smoothstep(3.2, 4.5, b), 'fifth');
+    return;
+  }
+  if (b < 12) { Step.pirouette(P, Ease.inOut(((b - 4.6) % 2) / 2), 'fifth'); return; }
+  if (b < 20) {
+    if (n === 13 || n === 17) { Step.arabesque(P, Math.sin(f * Math.PI)); o.yaw = Math.PI - 0.6; } else if (n === 15 || n === 19) Step.pirouette(P, f, 'fifth'); else Step.balance(P, f, n, 1);
+    return;
+  }
+  if (b < 26) { Step.arabesque(P, smoothstep(20, 20.8, b)); o.yaw = Math.PI + ((b - 20) / 6) * TAU; return; }   // promenade in arabesque
+  if (b < 32) { if (n === 31) Step.jete(P, f); else Step.pirouette(P, f, 'first'); return; }                   // fouettés
+  if (b < 45) {
+    Step.float(P, t, 1);
+    const up = smoothstep(37, 39, b) * (1 - smoothstep(40.5, 42, b)); setArms(P, 'fifth', up); P.by += 0.03 * up;   // reaching for the snow
+    if (b > 42) Step.pirouette(P, smoothstep(42, 44.6, b), 'fifth'); else Step.arabesque(P, 0.45 * Math.sin((b - 32) * 0.7) ** 2);
+    return;
+  }
+  if (b < 51) { Step.pirouette(P, f, 'fifth'); return; }
+  if (b < 57) { o.z = lerp(0.25, -1.9, smoothstep(52.4, 53.6, b)); if ((n - 51) % 2 === 1) Step.jete(P, f); else Step.balance(P, f, n, 1); return; }
+  if (b < 61) { o.z = lerp(-1.9, 0.25, smoothstep(57, 58.2, b)); Step.pirouette(P, (f * 2) % 1, 'fifth'); return; }
+  Step.arabesque(P, smoothstep(61.2, 62.4, b)); o.yaw = Math.PI - 0.5;
+}
+
+/* camera keys in stage coordinates, by bar: always inside the clearing (r ≤ 8.5) or above the path, never among the trees */
+const DANCE_CAM = [
+  { b: -2, p: [-1.6, 2.9, -8.4], t: [0, 1.25, 0.6] },    // over Clara's shoulder
+  { b: 6, p: [0.5, 3.6, -8.4], t: [0, 1.3, 0.6] },       // straight on: the line of dancers turning
+  { b: 13, p: [-6.0, 3.2, -5.8], t: [0, 1.25, 0.2] },    // from the side: the ring
+  { b: 19.5, p: [-5.6, 7.8, -6.4], t: [0, 0.6, 0.6] },   // rising: the snowflake star
+  { b: 26, p: [5.4, 8.4, -6.0], t: [0, 0.5, 0.4] },
+  { b: 32, p: [4.0, 2.9, -7.0], t: [0, 1.15, 0.2] },     // the hush: low, over the kneeling ring
+  { b: 39, p: [-3.6, 2.7, -7.2], t: [0, 1.3, 0.2] },
+  { b: 45, p: [-5.8, 2.9, -6.0], t: [0, 1.25, 0.2] },    // the finale: wheeling round
+  { b: 51, p: [5.6, 3.6, -6.2], t: [0, 1.3, 0.4] },
+  { b: 57, p: [0.4, 5.6, -8.4], t: [0, 1.4, 0.8] },
+  { b: 63, p: [0.2, 3.4, -8.5], t: [0, 1.7, 1.6] },      // the last picture with the gate behind
+  { b: 99, p: [0.2, 3.4, -8.5], t: [0, 1.7, 1.6] },
+];
+function camKey(b, out, which) {
+  const K = DANCE_CAM; let i = 0;
+  while (i < K.length - 2 && b >= K[i + 1].b) i++;
+  const u = clamp((b - K[i].b) / (K[i + 1].b - K[i].b), 0, 1), p0 = K[Math.max(0, i - 1)][which], p1 = K[i][which], p2 = K[i + 1][which], p3 = K[Math.min(K.length - 1, i + 2)][which];
+  const u2 = u * u, u3 = u2 * u, cr = (a, b1, c, d) => 0.5 * (2 * b1 + (-a + c) * u + (2 * a - 5 * b1 + 4 * c - d) * u2 + (-a + 3 * b1 - 3 * c + d) * u3);
+  return out.set(cr(p0[0], p1[0], p2[0], p3[0]), cr(p0[1], p1[1], p2[1], p3[1]), cr(p0[2], p1[2], p2[2], p3[2]));
+}
+
+/* optimal assignment (Hungarian method) of rows to columns for a square cost matrix: returns col of each row */
+function assignShortest(cost) {
+  const n = cost.length, INF = 1e18, u = new Array(n + 1).fill(0), v = new Array(n + 1).fill(0), p = new Array(n + 1).fill(0), way = new Array(n + 1).fill(0);
+  for (let i = 1; i <= n; i++) {
+    p[0] = i; let j0 = 0;
+    const minv = new Array(n + 1).fill(INF), used = new Array(n + 1).fill(false);
+    do {
+      used[j0] = true;
+      const i0 = p[j0]; let delta = INF, j1 = 0;
+      for (let j = 1; j <= n; j++) {
+        if (used[j]) continue;
+        const cur = cost[i0 - 1][j - 1] - u[i0] - v[j];
+        if (cur < minv[j]) { minv[j] = cur; way[j] = j0; }
+        if (minv[j] < delta) { delta = minv[j]; j1 = j; }
+      }
+      for (let j = 0; j <= n; j++) { if (used[j]) { u[p[j]] += delta; v[j] -= delta; } else minv[j] -= delta; }
+      j0 = j1;
+    } while (p[j0] !== 0);
+    do { const j1 = way[j0]; p[j0] = p[j1]; j0 = j1; } while (j0);
+  }
+  const res = new Array(n);
+  for (let j = 1; j <= n; j++) res[p[j] - 1] = j - 1;
+  return res;
+}
+
+/* ---------------- the corps: two posed template dolls, copied to every dancer per body part ---------------- */
+const _dm = new THREE.Matrix4(), _dm2 = new THREE.Matrix4(), _dq = new THREE.Quaternion(), _dqf = new THREE.Quaternion().setFromAxisAngle(V3(1, 0, 0), -Math.PI / 2), _dp = V3(), _ds = V3(), _dup = V3(0, 1, 0);
+const Corps = {
+  group: null, tpl: [], lists: [], inst: [], blobs: null, cap: 0, n: 0,
+  build(root, cap) {
+    this.cap = cap;
+    this.group = new THREE.Group(); this.group.name = 'corps'; this.group.visible = false; root.add(this.group);
+    this.tpl = [buildDoll('snowflake', { lod: 1 }), buildDoll('snowflake', { lod: 1 })];
+    this.lists = this.tpl.map((d) => { const L = []; d.root.traverse((o) => { if (o.isMesh && o !== d.wand) L.push(o); }); return L; });
+    this.inst = this.lists[0].map((m) => {
+      const im = new THREE.InstancedMesh(m.geometry, m.material, cap);
+      im.instanceMatrix.setUsage(THREE.DynamicDrawUsage); im.frustumCulled = false; im.castShadow = false; im.receiveShadow = false; im.renderOrder = m.renderOrder;
+      this.group.add(im); return im;
+    });
+    this.blobs = new THREE.InstancedMesh(GEO.plane(), MAT.shadow, cap);
+    this.blobs.instanceMatrix.setUsage(THREE.DynamicDrawUsage); this.blobs.frustumCulled = false; this.blobs.renderOrder = 2; this.group.add(this.blobs);
+    for (const d of this.tpl) d.root.updateMatrixWorld(true);
+    this.setCount(cap);
+  },
+  setCount(n) { this.n = n; for (const im of this.inst) im.count = n; this.blobs.count = n; },
+  pose(g, P, t) { applyPose(this.tpl[g], P, t); this.tpl[g].root.updateMatrixWorld(true); },
+  write(i, g, x, y, z, yaw, s) {
+    _dq.setFromAxisAngle(_dup, yaw); _dm.compose(_dp.set(x, y, z), _dq, _ds.set(s, s, s));
+    const L = this.lists[g];
+    for (let k = 0; k < L.length; k++) { _dm2.multiplyMatrices(_dm, L[k].matrixWorld); this.inst[k].setMatrixAt(i, _dm2); }
+    _dm2.compose(_dp.set(x, 0.024, z), _dqf, _ds.set(0.82 * s, 0.82 * s, 1)); this.blobs.setMatrixAt(i, _dm2);
+  },
+  flush() { for (const im of this.inst) im.instanceMatrix.needsUpdate = true; this.blobs.instanceMatrix.needsUpdate = true; },
+  triangles() { let t = 0; for (const im of this.inst) { const g = im.geometry; t += (g.index ? g.index.count : g.attributes.position.count) / 3; } return Math.round(t); },
+};
+
+/* ---------------- stage light: a frost ring on the snow, soft beams, a whirl of snow ---------------- */
+function stageGlowTex() {
+  const S = 256, cv = makeCanvas(S, S), g = cv.getContext('2d'), c = S / 2;
+  const grd = g.createRadialGradient(c, c, 0, c, c, c);
+  grd.addColorStop(0, 'rgba(190,220,255,0.30)'); grd.addColorStop(0.55, 'rgba(165,200,255,0.14)'); grd.addColorStop(0.83, 'rgba(225,240,255,0.55)'); grd.addColorStop(0.9, 'rgba(200,225,255,0.16)'); grd.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = grd; g.fillRect(0, 0, S, S);
+  g.strokeStyle = 'rgba(235,245,255,0.38)'; g.lineWidth = 2; g.lineCap = 'round';
+  for (let k = 0; k < 6; k++) {
+    const a = (k * Math.PI) / 3; g.beginPath(); g.moveTo(c, c); g.lineTo(c + Math.cos(a) * S * 0.38, c + Math.sin(a) * S * 0.38); g.stroke();
+    for (let j = 1; j < 4; j++) { const r = S * 0.095 * j, bx = c + Math.cos(a) * r, by = c + Math.sin(a) * r; for (const s of [-1, 1]) { g.beginPath(); g.moveTo(bx, by); g.lineTo(bx + Math.cos(a + s * 0.7) * S * (0.06 - j * 0.01), by + Math.sin(a + s * 0.7) * S * (0.06 - j * 0.01)); g.stroke(); } }
+  }
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+function beamTex() {
+  const cv = makeCanvas(4, 128), g = cv.getContext('2d');
+  for (let y = 0; y < 128; y++) { const v = 1 - y / 127, a = smoothstep(0, 0.12, v) * (0.3 + 0.5 * v) * smoothstep(1, 0.55, v); g.fillStyle = `rgba(255,255,255,${a.toFixed(3)})`; g.fillRect(0, y, 4, 1); }
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+const VORTEX_VERT = /* glsl */`
+  attribute vec4 aSeed; // radius, angle, height, speed (0..1)
+  uniform float uT; uniform float uScale; uniform float uR; uniform float uH; uniform float uDense;
+  varying float vAlpha; varying float vRot;
+  void main() {
+    float r = mix(0.6, uR, aSeed.x);
+    float a = aSeed.y * 6.2831853 + uT * (0.35 + 0.65 * aSeed.w) * (2.4 / (1.0 + r * 0.35));
+    float h = uH - mod(uH * (1.0 - aSeed.z) + uT * (0.5 + 0.7 * aSeed.w), uH);
+    vec3 p = vec3(sin(a) * r, h, cos(a) * r);
+    vAlpha = step(aSeed.w, uDense) * smoothstep(0.0, 0.8, h) * smoothstep(uH, uH - 1.5, h);
+    vRot = uT * (aSeed.w - 0.5) * 3.0 + aSeed.y * 6.0;
+    vec4 mv = modelViewMatrix * vec4(p, 1.0);
+    gl_PointSize = (0.08 + 0.1 * aSeed.x) * uScale / max(0.1, -mv.z);
+    gl_Position = projectionMatrix * mv;
+  }`;
+function makeVortex(count, R, H) {
+  const pos = new Float32Array(count * 3), seed = new Float32Array(count * 4), rr = mulberry32(731);
+  for (let i = 0; i < count; i++) seed.set([Math.sqrt(rr()), rr(), rr(), rr()], i * 4);
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('aSeed', new THREE.BufferAttribute(seed, 4));
+  const mat = new THREE.ShaderMaterial({
+    uniforms: { uTex: { value: TEX.particles }, uT: { value: 0 }, uScale: FX.uniforms.uScale, uR: { value: R }, uH: { value: H }, uDense: { value: 0 }, uOpacity: { value: 0.95 }, uColor: { value: new THREE.Color('#ffffff') }, uCell: { value: CELL.snow } },
+    vertexShader: VORTEX_VERT, fragmentShader: SNOW_FRAG, transparent: true, depthWrite: false,
+  });
+  const pts = new THREE.Points(geo, mat); pts.frustumCulled = false; pts.renderOrder = 17;
+  return pts;
+}
+
+/* ---------------- the performance ---------------- */
+const _dw = V3(), _dw2 = V3(), _dct = V3(), _dcp = V3();
+const Dance = {
+  W3: null, active: false, running: false, skipping: false, camOn: false, n: 0, t: 0, beta: -1, holdBeta: null, bowK: 0,
+  fade: [], spin: [0, 0], P: [newPose(), newPose()], Ps: newPose(), slots: [], fx: {}, fxK: 0, base: null, done: null, _res: null, cues: {},
+  build(W3) {
+    this.W3 = W3;
+    Corps.build(W3.root, SNOW_DANCE.corps);
+    const st = W3.stage, fx = this.fx, root = new THREE.Group(); root.name = 'stagefx'; root.visible = false;
+    root.position.set(st.x, 0, st.z); root.rotation.y = st.yaw; W3.root.add(root); fx.root = root;
+    fx.disc = new THREE.Mesh(new THREE.PlaneGeometry(13.4, 13.4), new THREE.MeshBasicMaterial({ map: stageGlowTex(), transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, fog: false, toneMapped: false }));
+    fx.disc.rotation.x = -Math.PI / 2; fx.disc.position.y = 0.11; fx.disc.renderOrder = 2; root.add(fx.disc);
+    const bm = new THREE.MeshBasicMaterial({ map: beamTex(), color: '#dbe9ff', transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending, fog: false, toneMapped: false });
+    const bg = new THREE.CylinderGeometry(0.25, 2.2, 12, 20, 1, true); bg.translate(0, 6, 0);
+    fx.beams = [[0, 0.25, 0, 0], [-3.6, 1.2, 0.12, 0.05], [3.6, 1.2, -0.12, 0.05]].map(([x, z, rz, rx]) => { const m = new THREE.Mesh(bg, bm); m.position.set(x, 0, z); m.rotation.set(rx, 0, rz); m.renderOrder = 16; root.add(m); return m; });
+    fx.beamMat = bm;
+    fx.vortex = makeVortex(DEVICE.mobile ? 340 : 620, st.r + 0.8, 9); root.add(fx.vortex);
+    fx.rim = makeGlowPoints(Array.from({ length: 30 }, (_, i) => { const a = (i / 30) * TAU, r = st.r + 0.7 + (i % 3) * 0.25; return { p: [Math.sin(a) * r, 0.25 + (i % 5) * 0.22, Math.cos(a) * r], c: pick(['#dff0ff', '#ffffff', '#cfe4ff', '#fff1c8']), s: 0.7 + (i % 4) * 0.15, tw: 0.8 }; }), { boost: 1 });
+    root.add(fx.rim);
+    const L = W3.lights; this.base = { hemi: L.hemi.intensity, key: L.key.intensity, rim: L.rim.intensity };
+  },
+  get cap() { return Corps.cap; },
+  corpsCount() { return Perf.quality === 'low' || DEVICE.lowMem ? SNOW_DANCE.corpsLite : SNOW_DANCE.corps; },
+
+  /* slot of every dancer in every formation. At each change the dancers take the slots that make the total walk
+     shortest (an optimal assignment): with that, no two straight paths cross. */
+  plan(n) {
+    const P = DANCE_PLAN, slots = [Array.from({ length: n }, (_, i) => i)], a = { x: 0, z: 0, yaw: 0 }, c = { x: 0, z: 0, yaw: 0 };
+    for (let k = 1; k < P.length; k++) {
+      const b0 = P[k].b, from = [], to = [];
+      for (let i = 0; i < n; i++) { FORM[P[k - 1].f](slots[k - 1][i], n, b0, a); from.push([a.x, a.z]); }
+      for (let s = 0; s < n; s++) { FORM[P[k].f](s, n, b0, c); to.push([c.x, c.z]); }
+      slots.push(assignShortest(from.map((p) => to.map((q) => Math.hypot(p[0] - q[0], p[1] - q[1])))));
+    }
+    return slots;
+  },
+  formation(b) { let k = DANCE_PLAN.length - 1; while (k > 0 && b < DANCE_PLAN[k].b) k--; return k; },
+  /* where dancer i stands at bar b (stage coordinates) */
+  place(i, b, o) {
+    const n = this.n, k = this.formation(b), p = DANCE_PLAN[k], s = this.slots[k][i];
+    const tgt = FORM[p.f](s, n, b, _fa);
+    let w = 1, prev = null;
+    if (p.enter) { const j = Math.floor(s / 2), st = j * 0.5 + (s % 2) * 0.22; w = smoothstep(st, st + 2.4, b); if (w < 1) prev = FORM.wings(s, n, b, _fb); }
+    else if (p.tr && b < p.b + p.tr) { w = smoothstep(p.b, p.b + p.tr, b); prev = FORM[DANCE_PLAN[k - 1].f](this.slots[k - 1][i], n, p.cart ? p.b : b, _fb); }
+    if (!prev) { o.x = tgt.x; o.z = tgt.z; o.yaw = tgt.yaw; return o; }
+    if (p.cart || p.enter) { o.x = lerp(prev.x, tgt.x, w); o.z = lerp(prev.z, tgt.z, w); }
+    else { const ra = Math.hypot(prev.x, prev.z), rb = Math.hypot(tgt.x, tgt.z), aa = Math.atan2(prev.x, prev.z), ab = Math.atan2(tgt.x, tgt.z), r = lerp(ra, rb, w), an = aa + angleDiff(aa, ab) * w; o.x = Math.sin(an) * r; o.z = Math.cos(an) * r; }
+    o.yaw = prev.yaw + angleDiff(prev.yaw, tgt.yaw) * w;
+    return o;
+  },
+  group(i, b) { const k = this.formation(b); return this.slots[k][i] % 2; },
+
+  reset() {
+    this.stop();
+    this.cues = {};
+  },
+  stop() {
+    DanceMusic.stop(true);
+    const wasActive = this.active;
+    this.active = false; this.running = false; this.skipping = false; this.camOn = false; this.holdBeta = null; this.bowK = 0; this.fxOut = false; this.skipped = false;
+    if (Corps.group) Corps.group.visible = false;
+    if (this.fx.root) this.fx.root.visible = false;
+    if (wasActive) this.lights(1, 1, 1);
+    UI.hide('danceSkip');
+    if (this._res) { const r = this._res; this._res = null; r(); }
+  },
+  lights(h, k, r) { const L = this.W3 && this.W3.lights, B = this.base; if (!L || !B) return; L.hemi.intensity = B.hemi * h; L.key.intensity = B.key * k; L.rim.intensity = B.rim * r; },
+
+  /* the whole performance: curtain, music, the last bow; resolves when the snowflakes have melted away */
+  async perform() {
+    const S = Snow, W3 = S.W, st = W3.stage;
+    this.reset();
+    await guard(UI.fade(1, 0.55, true));
+    this.n = this.corpsCount(); Corps.setCount(this.n);
+    this.slots = this.plan(this.n); this.fade = new Array(this.n).fill(1);
+    this.active = true; this.running = false; this.camOn = true; this.t = 0; this.beta = -1; this.fxK = 0;
+    Corps.group.visible = true; this.fx.root.visible = true;
+    S.fairy.root.visible = true; S.blob.visible = true; S.fairy.root.scale.setScalar(1); S.fairy.a.action = null;
+    clara.root.visible = true; prince.root.visible = true; blobs.clara.visible = true; blobs.nut.visible = true;
+    this.tick(-1, 0.016);
+    const slow = setTimeout(() => UI.toast('눈송이 왈츠를 준비하고 있어요…', 2400), 450);
+    const prep = await guard(DanceMusic.prepare());
+    clearTimeout(slow);
+    if (prep.note) UI.toast(prep.note, 3800);
+    UI.show('danceSkip');
+    await guard(UI.fade(0, 0.9, true));
+    this.done = new Promise((r) => { this._res = r; });
+    DanceMusic.start(0.25);
+    this.running = true;
+    await guard(this.done);
+    // the corps bows, then melts back into falling snow
+    UI.hide('danceSkip');
+    clara.play('cheer', 1.6); clara.setExpr('happy', 3); prince.play('bow', 1.6);
+    await guard(tween(1.6, (k) => { this.bowK = Math.sin(Math.min(1, k * 1.25) * Math.PI * 0.5) * (k < 0.8 ? 1 : 1 - (k - 0.8) * 2.5); }, Ease.linear));
+    this.bowK = 0;
+    Sound.sfxTransform();
+    for (let i = 0; i < this.n; i++) {
+      const j = i;
+      tween(0.75, (k) => {
+        if (this.fade[j] === 1 && k > 0) { this.place(j, this.beta, _fo); st.toWorld(_fo.x, _fo.z, _dw); burst(_dw.x, 1.0, _dw.z, { n: 12, speed: 2.2, g: -0.5, cell: CELL.snow, colors: ['#ffffff', '#dceeff', '#eaf4ff'], size: 1.1 }); }
+        this.fade[j] = Math.max(0.001, 1 - k);
+      }, Ease.in).catch(() => {});
+      await guard(wait(0.07));
+    }
+    await guard(wait(0.85));
+    Corps.group.visible = false;
+    // the stage light and the whirl of snow fade away and the forest's own light returns
+    const fx = this.fx, L = W3.lights, B = this.base, d0 = fx.disc.material.opacity, b0 = fx.beamMat.opacity, u = fx.vortex.material.uniforms, v0 = u.uDense.value, h0 = L.hemi.intensity, k0 = L.key.intensity, r0 = L.rim.intensity;
+    this.fxOut = true;
+    await guard(tween(1.4, (k, kr, dt) => {
+      const m = 1 - k; fx.disc.material.opacity = d0 * m; fx.beamMat.opacity = b0 * m; u.uDense.value = v0 * m; u.uT.value += (dt || 0.016) * 0.4;
+      L.hemi.intensity = lerp(h0, B.hemi, k); L.key.intensity = lerp(k0, B.key, k); L.rim.intensity = lerp(r0, B.rim, k);
+    }, Ease.inOut));
+    fx.root.visible = false; this.fxOut = false;
+    this.camOn = false; this.active = false;
+  },
+  async skip() {
+    if (!this.running || this.skipping) return;
+    this.skipping = true;
+    UI.hide('danceSkip');
+    await UI.fade(1, 0.35, true);
+    if (!this.running) { this.skipping = false; return; }
+    DanceMusic.stop(); this.running = false; this.holdBeta = 63.4; this.skipped = true;
+    this.tick(this.holdBeta, 0.016);
+    await UI.fade(0, 0.45, true);
+    this.skipping = false;
+    if (this._res) { const r = this._res; this._res = null; r(); }
+  },
+  onPause(on) {
+    if (!this.running) return false;
+    if (on) { DanceMusic.pause(); this.tick(DanceMusic.barAt(DanceMusic.time()), 0); }   // the still frame matches the stilled music
+    else DanceMusic.resume();
+    return true;
+  },
+
+  update(dt) {
+    if (!this.active) return;
+    this.t += dt;
+    let b = this.holdBeta !== null ? this.holdBeta : this.beta;
+    if (this.running) {
+      const tau = DanceMusic.time();
+      b = DanceMusic.barAt(tau);
+      if (tau >= DanceMusic.endT) { this.running = false; this.holdBeta = Math.min(b, 64.5); DanceMusic.stop(); if (this._res) { const r = this._res; this._res = null; r(); } }
+    }
+    this.tick(b, dt);
+  },
+  /* where everyone stands at bar b: the formations, then a light nudge so no two tutus pass through each other while
+     the dancers change places (pairs closer than `gap`, or nearer the snow fairy than `solo`, are eased apart) */
+  positions(b, out, solo) {
+    const n = this.n, gap = 0.86, soloGap = 1.0;
+    for (let i = 0; i < n; i++) { const o = out[i] || (out[i] = { x: 0, z: 0, yaw: 0 }); this.place(i, b, o); }
+    for (let it = 0; it < 3; it++) {
+      for (let i = 0; i < n; i++) {
+        const a = out[i];
+        for (let j = i + 1; j < n; j++) {
+          const c = out[j], dx = c.x - a.x, dz = c.z - a.z, d = Math.hypot(dx, dz);
+          if (d < gap && d > 1e-4) { const k = (gap - d) / (2 * d); a.x -= dx * k; a.z -= dz * k; c.x += dx * k; c.z += dz * k; }
+        }
+        const sx = a.x - solo.x, sz = a.z - solo.z, sd = Math.hypot(sx, sz);
+        if (sd < soloGap && sd > 1e-4) { const k = (soloGap - sd) / sd; a.x += sx * k; a.z += sz * k; }
+      }
+    }
+    return out;
+  },
+  /* pose and place everyone for bar b */
+  tick(b, dt) {
+    const st = this.W3.stage, t = this.t, n = this.n;
+    this.beta = b;
+    for (let g = 0; g < 2; g++) { const P = newPose(this.P[g]); corpsPose(g, b, t, P); if (this.bowK) Step.reverence(P, this.bowK); Corps.pose(g, P, t); this.spin[g] = P.spin; }
+    const P = newPose(this.Ps);
+    soloPose(b, t, P, _so);
+    const pos = this.positions(b, this.pos || (this.pos = []), _so);
+    for (let i = 0; i < n; i++) {
+      const o = pos[i], g = this.group(i, b);
+      st.toWorld(o.x, o.z, _dw);
+      Corps.write(i, g, _dw.x, 0.04, _dw.z, st.yaw + o.yaw + this.spin[g], 0.86 * this.fade[i]);
+    }
+    Corps.flush();
+    // the snow fairy
+    const f = Snow.fairy;
+    if (this.bowK) Step.reverence(P, this.bowK);
+    applyPose(f, P, t);
+    st.toWorld(_so.x, _so.z, _dw); f.root.position.set(_dw.x, 0.04, _dw.z); f.root.rotation.y = st.yaw + _so.yaw + P.spin;
+    Snow.blob.position.set(_dw.x, 0.02, _dw.z);
+    // Clara and the prince watch from the front corner of the clearing
+    for (const [doll, x, z, blob] of [[clara, -2.4, -6.6, blobs.clara], [prince, -3.6, -7.3, blobs.nut]]) {
+      st.toWorld(x, z, _dw2); doll.root.position.set(_dw2.x, 0, _dw2.z); doll.root.rotation.y = st.yaw + Math.atan2(-x, -z);
+      doll.update(dt, 0, true, 0); blob.position.set(_dw2.x, 0.02, _dw2.z);
+    }
+    this.cue(b);
+    this.fxUpdate(b, dt);
+    if (this.camOn) this.camUpdate(b);
+  },
+  /* small reactions from the audience */
+  cue(b) {
+    const once = (k, fn) => { if (b >= k && !this.cues[k]) { this.cues[k] = true; fn(); } };
+    once(1, () => clara.setExpr('surprised', 1.8));
+    once(20.5, () => { clara.setExpr('happy', 3); });
+    once(33, () => clara.setExpr('surprised', 2.2));
+    once(45.5, () => clara.setExpr('happy', 4));
+  },
+  fxUpdate(b, dt) {
+    const fx = this.fx; if (!fx.root || this.fxOut) return;
+    this.fxK = damp(this.fxK, this.active ? 1 : 0, 2.2, dt);
+    const sec = b < 20 ? 0 : b < 32 ? 1 : b < 45 ? 2 : 3, rise = smoothstep(45, 63, b);
+    const disc = [0.42, 0.5, 0.34, lerp(0.5, 0.72, rise)][sec], beam = [0.06, 0.085, 0.14, lerp(0.09, 0.17, rise)][sec];
+    const dense = [lerp(0.15, 0.38, smoothstep(0, 8, b)), 0.5, lerp(0.55, 0.92, smoothstep(32, 44, b)), lerp(0.75, 1, rise)][sec], spin = [0.35, 0.45, 0.28, lerp(0.55, 1.15, rise)][sec];
+    const k = this.fxK, high = 1 - 0.75 * smoothstep(4.5, 7.5, Cam.pos.y);   // beams are seen end-on from above: fade them
+    fx.disc.material.opacity = damp(fx.disc.material.opacity, disc * k, 3, dt);
+    fx.beamMat.opacity = damp(fx.beamMat.opacity, beam * k * high, 3, dt);
+    const u = fx.vortex.material.uniforms; u.uDense.value = damp(u.uDense.value, dense * k, 2, dt); u.uT.value += dt * spin * (this.running || this.holdBeta !== null ? 1 : 0.4);
+    const hush = sec === 2 ? smoothstep(32, 34, b) * (1 - smoothstep(43, 45, b)) : 0;
+    this.lights(lerp(1, 0.8, hush) * (1 + 0.06 * rise), lerp(1, 0.72, hush) * (1 + 0.08 * rise), 1 + 0.4 * hush);
+  },
+  camUpdate(b) {
+    const st = this.W3.stage;
+    camKey(b, _dcp, 'p'); camKey(b, _dct, 't');
+    // a tall phone sees less from side to side: rise and look down (the clearing's edge is the limit: trees beyond)
+    const asp = camera.aspect, pf = asp < 1 ? (1 - asp) * 0.75 : 0;
+    if (pf > 0) { _dcp.y += pf * 7; _dct.y -= pf * 0.8; }
+    st.toWorld(_dcp.x, _dcp.z, _dw); Cam.pos.set(_dw.x, _dcp.y, _dw.z);
+    st.toWorld(_dct.x, _dct.z, _dw); Cam.target.set(_dw.x, _dct.y, _dw.z);
+    Cam.mode = 'free';
+  },
+};
+const _fa = { x: 0, z: 0, yaw: 0 }, _fb = { x: 0, z: 0, yaw: 0 }, _fo = { x: 0, z: 0, yaw: 0 }, _so = { x: 0, z: 0, yaw: 0 };
+
+/* ---------------- pause-menu button: the player's own recording of the waltz (kept in this browser only) ---------------- */
+const DanceUI = {
+  init() {
+    const skip = $('danceSkip');
+    if (skip) skip.addEventListener('click', (e) => { e.stopPropagation(); Sound.sfxUI(); Dance.skip(); });
+    const btn = $('btnDanceMusic'), inp = $('danceFile');
+    if (!btn || !inp) return;
+    btn.addEventListener('click', async () => {
+      Sound.sfxUI();
+      if (DanceMusic.local) { const done = DanceMusic.clearLocal(); this.sync(); UI.toast('눈송이 왈츠를 게임 기본 연주로 되돌렸어요', 2600); await done; return; }
+      inp.value = ''; inp.click();
+    });
+    inp.addEventListener('change', async () => {
+      const f = inp.files && inp.files[0]; if (!f) return;
+      const r = await DanceMusic.setLocalFile(f);
+      UI.toast(r.ok ? '이 기기에만 저장했어요 · 군무 때 이 음원으로 공연해요' : '박자 지도를 만든 그 녹음 파일이 아니어서 쓸 수 없어요', 3800);
+      this.sync();
+    });
+    DanceMusic.loadLocalInfo().then(() => this.sync());
+  },
+  sync() { const s = $('danceMusicState'); if (s) s.textContent = DanceMusic.local ? '내 기기 음원' : '기본 연주'; },
+};
 
 /* ---- 99-main.js ---- */
 /* =====================================================================
@@ -8613,6 +9622,7 @@ function gameUpdate(dt) {
 /* ---------------- boot ---------------- */
 async function boot(hot) {
   UI.init();
+  DanceUI.init();
   Input.init();
   Save.load(hot);
   UI.setLoading(0.05, '무대를 준비하고 있어요…');
@@ -8667,7 +9677,7 @@ async function boot(hot) {
   await new Promise((r) => setTimeout(r, 250));
   Story.toTitle(true);
   window.__nut = {
-    G, player, Cam, Story, Input, UI, comp, K, Tasks, mice, soldiers, flags, Perf, DEBUG, applyMood, setQuality, spawnMouse, killMouse, hitKing, throwSlipper, Toy, Build, TG, World, Save, Sound, Snow, Rhythm, SNOW_CFG,
+    G, player, Cam, Story, Input, UI, comp, K, Tasks, mice, soldiers, flags, Perf, DEBUG, applyMood, setQuality, spawnMouse, killMouse, hitKing, throwSlipper, Toy, Build, TG, World, Save, Sound, Snow, Rhythm, SNOW_CFG, Dance, DanceMusic, Corps, MediaStore, SNOW_DANCE, DANCE_PLAN, FORM,
     get W() { return W; }, get clara() { return clara; }, get nut() { return nut; }, get king() { return king; }, get prince() { return prince; },
     get fairyBig() { return fairyBig; }, get portal() { return portal; }, get magicSnow() { return magicSnow; }, get starSet() { return starSet; }, get renderer() { return renderer; }, get camera() { return camera; }, get scene() { return scene; },
   };

@@ -17,6 +17,7 @@ const { open } = require('./harness.cjs');
   /* 2. play it: autoplay is switched on before the song starts so every note follows the plan */
   const plan = await ev(() => {
     const R = window.__nut.Rhythm; R.auto = { perfect: 0.6, good: 0.25 };
+    window.__nut.DanceMusic.rate = 6;   // the snowflakes' waltz after the rhythm part, played fast for the test
     const C = R.chart(), want = { perfect: 0, good: 0, miss: 0 };
     for (const n of C.notes) want[R.autoKind(n, R.auto)]++;
     return { want, N: C.notes.length };
@@ -61,8 +62,11 @@ const { open } = require('./harness.cjs');
   ok('progress: opened path = perfect + good/2 (not a score)', Math.abs(end.opened - (plan.want.perfect + plan.want.good / 2)) < 1e-9, { opened: end.opened });
   await page.waitForTimeout(1200);
 
-  /* 3. finale, clear card, save */
+  /* 3. the snowflakes' waltz comes before the finale, then the finale, clear card, save */
   await ev(() => { window.__nut.DEBUG.timeScale = 3; });
+  await until(() => window.__nut.G.phase === 'dance' && window.__nut.Dance.running, 300000, 'the snowflakes dance');
+  const dz = await ev(() => { const n = window.__nut; return { gate: n.Snow.W.gate.open, corps: n.Corps.group.visible, n: n.Dance.n }; });
+  ok('the snowflakes dance before the finale (gate still closed)', dz.gate === 0 && dz.corps && dz.n >= 8, dz);
   await until(() => window.__nut.G.mode === 'clear', 300000, 'clear card');
   await ev(() => { window.__nut.DEBUG.timeScale = 1; });
   await page.waitForTimeout(1200);

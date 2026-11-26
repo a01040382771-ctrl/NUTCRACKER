@@ -50,6 +50,9 @@ const Snow = {
     this.W = buildSnowland(root, this.N);
     this.fairy = buildSnowFairy(); this.fairy.root.visible = false; root.add(this.fairy.root);
     this.blob = makeBlob(0.42); this.blob.visible = false; root.add(this.blob);
+    UI.setLoading(0.6, '눈송이 무용수들이 준비하는 중…');
+    await nextFrame();
+    Dance.build(this.W);
     this.fog = new THREE.Fog('#c9d4f1', 26, 96);
     this.bg = new THREE.Color('#101a4a');
     UI.setLoading(0.8, '눈꽃 요정을 깨우는 중…');
@@ -88,6 +91,7 @@ const Snow = {
   leave() {
     if (!this.W) return;
     Rhythm.stop();
+    Dance.stop();
     UI.hide('rhythm');
     this.viewK = 0; camera.clearViewOffset();
     this.fairy.root.visible = false; this.blob.visible = false; this.followCam = false;
@@ -99,8 +103,9 @@ const Snow = {
     const W3 = this.W, N = this.N;
     Object.assign(G, { phase: 'none', stars: 0, time: 0, throws: 0, combat: false, markerAt: null });
     Rhythm.stop();
+    Dance.reset();
     this.goal = new Array(N).fill(0); this.cur = new Array(N).fill(0); this.lampOn = new Array(W3.lampTile.length).fill(false);
-    this.opened = 0; this.perfectRun = 0; this.final = null; this.pct = 0; this.sp = 0; this.shown = 0;
+    this.opened = 0; this.perfectRun = 0; this.final = null; this.pct = 0; this.sp = 0; this.shown = 0; this.holdActors = false;
     W3.resetPath();
     this.fs = this.goalS = W3.lead + 0.3;
     this.followCam = false; this.setView(0);
@@ -198,11 +203,14 @@ const Snow = {
     const W3 = this.W; if (!W3) return;
     const t = FX.uniforms.uTime.value;
     Rhythm.update(dt);
-    // the fairy glides towards the tile of the last snowflake; Clara and the prince follow her
-    const d = this.goalS - this.fs, step = Math.sign(d) * Math.min(Math.abs(d), (3.6 + Math.abs(d) * 2) * dt);
-    this.fs += step;
-    this.sp = damp(this.sp, Math.min(1, Math.abs(step) / Math.max(dt, 1e-4) / 3.2), 8, dt);
-    this.placeActors(dt);
+    if (Dance.active) Dance.update(dt);    // the snowflakes' waltz places and poses everyone itself
+    else if (!this.holdActors) {
+      // the fairy glides towards the tile of the last snowflake; Clara and the prince follow her
+      const d = this.goalS - this.fs, step = Math.sign(d) * Math.min(Math.abs(d), (3.6 + Math.abs(d) * 2) * dt);
+      this.fs += step;
+      this.sp = damp(this.sp, Math.min(1, Math.abs(step) / Math.max(dt, 1e-4) / 3.2), 8, dt);
+      this.placeActors(dt);
+    }
     // tiles ease towards their target, lanterns light beside opened tiles
     for (let i = 0; i < this.N; i++) {
       const g = this.goal[i], c = this.cur[i];
@@ -213,7 +221,7 @@ const Snow = {
     W3.sky.position.set(camera.position.x, 0, camera.position.z);
     W3.snowField.position.set(camera.position.x, 0, camera.position.z);
     if (W3.gate.open > 0.02 && Math.random() < dt * 14) { const g = W3.gate.group; _sb.set((Math.random() - 0.5) * 3.6, 0.3 + Math.random() * 3.6, 0.6); g.localToWorld(_sb); FX.add.spawn({ x: _sb.x, y: _sb.y, z: _sb.z, vy: 0.5, life: 1.2, size: 0.28, size1: 0, color: pick(['#ffd6e6', '#fff1c8', '#ffffff']), cell: CELL.sparkle, rot: rnd(0, 3) }); }
-    this.fairy.root.position.y = 0.3 + Math.sin(t * 1.6) * 0.05;
+    if (!Dance.active) this.fairy.root.position.y = 0.3 + Math.sin(t * 1.6) * 0.05;
     if (this.followCam) this.updateCamera(dt);
   },
   placeActors(dt) {
@@ -249,13 +257,13 @@ const Snow = {
     else camera.clearViewOffset();
   },
   applyView() { if (G.chapter === 3) this.setView(this.viewK); },
-  onPause(on) { if (!Rhythm.running) return; if (on) Rhythm.pause(); else Rhythm.resume(); },
+  onPause(on) { if (Dance.onPause(on)) return; if (!Rhythm.running) return; if (on) Rhythm.pause(); else Rhythm.resume(); },
   toWorld(lx, ly, lz, out) {
     const g = this.W.gate.group, c = Math.cos(g.rotation.y), s = Math.sin(g.rotation.y);
     return out.set(g.position.x + lx * c + lz * s, g.position.y + ly, g.position.z - lx * s + lz * c);
   },
 
-  /* ---------- finale: the fairy spins, the whole path lights up, the gate to the Sweets Kingdom opens ---------- */
+  /* ---------- after the waltz: first the snowflakes' corps de ballet, then the finale (the fairy spins, the whole path lights up, the gate opens) ---------- */
   async finale() {
     const W3 = this.W, N = this.N, f = this.fairy;
     G.phase = 'finale'; G.mode = 'cutscene'; G.locked = true;
@@ -264,9 +272,29 @@ const Snow = {
     this.pct = Math.round((this.opened / N) * 100);
     const st = Rhythm.stats; this.final = { perfect: st.perfect, good: st.good, miss: st.miss };
     tween(0.8, (k) => this.setView(1 - k), Ease.inOut);
+    // 1. as the waltz fades, the snow fairy invites everyone to the clearing before the gate
+    DanceMusic.preload();   // a recording kept on this device starts decoding now, while she speaks
+    const fp0 = W3.P(this.fs, _sa).clone(), c0 = W3.P(Math.max(0, this.fs - 7.5), _sb).clone();
+    await guard(Cam.to([c0.x, 3.6, c0.z], [fp0.x, 1.5, fp0.z], 1.1));
+    f.play('curtsy', 1.4);
+    await guard(UI.say('snowfairy', '들어 보세요, 클라라. 왈츠 소리에 숲의 눈송이들이 모두 깨어났어요!'));
+    await guard(UI.say('snowfairy', '길을 열어 준 답례로 눈송이들의 왈츠를 보여 드릴게요. 문 앞 빈터로 가요!'));
+    // 2. the snowflakes' waltz: a corps de ballet in the clearing (before the finale)
+    G.phase = 'dance';
+    await guard(Dance.perform());
+    G.phase = 'finale';
+    // 3. the finale: everyone strolls back onto the path while the camera finds the fairy; she spins and the whole path lights up
+    this.fs = this.goalS = W3.gateS - SNOW_DANCE.stage.back - 1.2;
+    const dolls = [clara, prince, f], from = dolls.map((d) => d.root.position.clone()), fromYaw = dolls.map((d) => d.root.rotation.y);
+    this.holdActors = true; this.sp = 0.5;
+    tween(1.4, (k) => {
+      this.placeActors(0.016);
+      dolls.forEach((d, i) => { d.root.position.lerpVectors(from[i], d.root.position, k); d.root.rotation.y = fromYaw[i] + angleDiff(fromYaw[i], d.root.rotation.y) * k; });
+      blobs.clara.position.set(clara.root.position.x, 0.02, clara.root.position.z); blobs.nut.position.set(prince.root.position.x, 0.02, prince.root.position.z); this.blob.position.set(f.root.position.x, 0.02, f.root.position.z);
+    }, Ease.inOut).then(() => { this.holdActors = false; this.sp = 0; });
     const fp = W3.P(this.fs, _sa).clone();
     const camTo = W3.P(Math.max(0, this.fs - 16), _sb).clone();
-    await guard(Cam.to([camTo.x, 8.5, camTo.z], [fp.x, 1.6, fp.z], 1.3));
+    await guard(Cam.to([camTo.x, 8.5, camTo.z], [fp.x, 1.6, fp.z], 1.4));
     f.play('spin', 2.4); Sound.sfxTransform();
     let sweep = 0;
     await guard(tween(2.2, (k) => {
@@ -275,7 +303,7 @@ const Snow = {
       while (sweep <= upto && sweep < N) { if (this.goal[sweep] < 1) this.setOpen(sweep, 1); sweep++; }
     }, Ease.linear));
     UI.setStars(N);
-    await guard(UI.say('narrator', '마지막 눈송이가 반짝 하고 터지자, 숲길 끝까지 환한 등불이 줄지어 켜졌어요.'));
+    await guard(UI.say('narrator', '눈송이들이 다시 눈발이 되어 흩날리자, 숲길 끝까지 환한 등불이 줄지어 켜졌어요.'));
     const gc = this.toWorld(-5.5, 3.0, -11, _sb).clone(), gl = this.toWorld(0, 2.6, 0, _sc).clone();
     await guard(Cam.to([gc.x, gc.y, gc.z], [gl.x, gl.y, gl.z], 1.5));
     Sound.sfxGate();
@@ -331,4 +359,7 @@ const Snow = {
 };
 
 /* leaving the page mid-song pauses the game, so the audio clock and the notes stop together */
-document.addEventListener('visibilitychange', () => { if (document.hidden && G.chapter === 3 && Rhythm.running && G.mode === 'play') Story.pause(); });
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden || G.chapter !== 3) return;
+  if ((Rhythm.running && G.mode === 'play') || (Dance.running && G.mode === 'cutscene')) Story.pause();
+});

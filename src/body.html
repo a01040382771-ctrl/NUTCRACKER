@@ -45,6 +45,9 @@
     <div class="rh-field" id="rhField"><canvas id="rhCv" aria-label="눈송이 리듬 레인"></canvas></div>
   </div>
 
+  <!-- the snowflakes' waltz (chapter III finale) -->
+  <button id="danceSkip" class="skip-btn" type="button" hidden>공연 건너뛰기 <span aria-hidden="true">›</span></button>
+
   <!-- touch controls -->
   <div id="controls" hidden>
     <div id="stickZone"><div id="stickBase"><div id="stickKnob"></div></div></div>
@@ -123,7 +126,9 @@
         <div class="toggles">
           <button class="tog" id="btnSound">소리 <b id="soundState">켜짐</b></button>
           <button class="tog" id="btnQuality">화질 <b id="qualityState">자동</b></button>
+          <button class="tog wide" id="btnDanceMusic" type="button">눈송이 왈츠 음원 <b id="danceMusicState">기본 연주</b></button>
         </div>
+        <input type="file" id="danceFile" accept="audio/*,.mp3" hidden>
       </div>
       <p class="help" id="helpText"></p>
     </div>

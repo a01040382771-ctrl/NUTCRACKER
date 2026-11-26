@@ -169,6 +169,7 @@ function gameUpdate(dt) {
 /* ---------------- boot ---------------- */
 async function boot(hot) {
   UI.init();
+  DanceUI.init();
   Input.init();
   Save.load(hot);
   UI.setLoading(0.05, '무대를 준비하고 있어요…');
@@ -223,7 +224,7 @@ async function boot(hot) {
   await new Promise((r) => setTimeout(r, 250));
   Story.toTitle(true);
   window.__nut = {
-    G, player, Cam, Story, Input, UI, comp, K, Tasks, mice, soldiers, flags, Perf, DEBUG, applyMood, setQuality, spawnMouse, killMouse, hitKing, throwSlipper, Toy, Build, TG, World, Save, Sound, Snow, Rhythm, SNOW_CFG,
+    G, player, Cam, Story, Input, UI, comp, K, Tasks, mice, soldiers, flags, Perf, DEBUG, applyMood, setQuality, spawnMouse, killMouse, hitKing, throwSlipper, Toy, Build, TG, World, Save, Sound, Snow, Rhythm, SNOW_CFG, Dance, DanceMusic, Corps, MediaStore, SNOW_DANCE, DANCE_PLAN, FORM,
     get W() { return W; }, get clara() { return clara; }, get nut() { return nut; }, get king() { return king; }, get prince() { return prince; },
     get fairyBig() { return fairyBig; }, get portal() { return portal; }, get magicSnow() { return magicSnow; }, get starSet() { return starSet; }, get renderer() { return renderer; }, get camera() { return camera; }, get scene() { return scene; },
   };

@@ -20,11 +20,19 @@ function buildSnowland(root, N) {
   Object.assign(W3, { P, T, LEN, sTile, gateS: lead + N * TL + 2.8 });
   const side = (s, sd, off) => { const p = P(s), t = T(s); return V3(p.x - t.z * sd * off, 0, p.z + t.x * sd * off); };
 
+  /* the clearing before the gate where the snowflakes dance: centre, axes (x across, z towards the gate) */
+  const gT0 = T(W3.gateS), gP0 = P(W3.gateS), gYaw = Math.atan2(gT0.x, gT0.z), SR = SNOW_DANCE.stage.radius;
+  const stage = { yaw: gYaw, r: SR, fx: Math.sin(gYaw), fz: Math.cos(gYaw), rx: Math.cos(gYaw), rz: -Math.sin(gYaw) };
+  stage.x = gP0.x - stage.fx * SNOW_DANCE.stage.back; stage.z = gP0.z - stage.fz * SNOW_DANCE.stage.back;
+  stage.toWorld = (lx, lz, out) => out.set(stage.x + lx * stage.rx + lz * stage.fx, 0, stage.z + lx * stage.rz + lz * stage.fz);
+  W3.stage = stage;
+  const dStage = (x, z) => Math.hypot(x - stage.x, z - stage.z);
+
   /* ---------------- snowy ground, flattened around the path ---------------- */
   const samples = []; for (let i = 0; i <= 260; i++) samples.push(P((i / 260) * LEN));
   const dPath = (x, z) => { let d = 1e9; for (const p of samples) { const dx = p.x - x, dz = p.z - z, q = dx * dx + dz * dz; if (q < d) d = q; } return Math.sqrt(d); };
   const dune = (x, z) => Math.sin(x * 0.09 + 1.3) * Math.cos(z * 0.07 + 0.4) * 0.9 + Math.sin(x * 0.21 + z * 0.15) * 0.35 + Math.sin(z * 0.045 + 2.2) * 0.7;
-  const hgt = (x, z) => dune(x, z) * smoothstep(3.6, 11, dPath(x, z));
+  const hgt = (x, z) => dune(x, z) * smoothstep(3.6, 11, dPath(x, z)) * smoothstep(SR + 2.2, SR + 7, dStage(x, z));
   W3.hgt = hgt;
   const gw = 170, gl = 290, gg = new THREE.PlaneGeometry(gw, gl, 68, 116);
   gg.rotateX(-Math.PI / 2); gg.translate(0, 0, -75);
@@ -77,7 +85,11 @@ function buildSnowland(root, N) {
   const lampB = new Batch(MAT.gold), glassB = new Batch(MAT.glow), lampGlow = [];
   W3.lampTile = [];
   for (let i = 3, sd = 1; i < N; i += 4, sd = -sd) {
-    const q = side(sTile(i), sd, 2.2), y0 = hgt(q.x, q.z);
+    const q = side(sTile(i), sd, 2.2);
+    // lanterns inside the clearing step sideways to its rim, where they light the dancers like footlights
+    const ax = q.x - stage.x, az = q.z - stage.z, al = ax * stage.fx + az * stage.fz, lat = ax * stage.rx + az * stage.rz, need = SR + 1.3;
+    if (Math.hypot(al, lat) < need) { const nl = Math.sign(lat || sd) * Math.sqrt(Math.max(0, need * need - al * al)); q.set(stage.x + nl * stage.rx + al * stage.fx, 0, stage.z + nl * stage.rz + al * stage.fz); }
+    const y0 = hgt(q.x, q.z);
     lampB.add(GEO.cyl(8), '#cdd8ec', TRS(q.x, y0 + 1.1, q.z, 0, 0, 0, 0.045, 2.2, 0.045));
     lampB.add(lathe([[0.2, 0], [0.2, 0.06], [0.09, 0.14], [0.06, 0.24]], 10, 0), '#cdd8ec', TRS(q.x, y0, q.z));
     glassB.add(roundBox(0.3, 0.42, 0.3, 0.05, 1), '#d5e4fa', TRS(q.x, y0 + 2.35, q.z));
@@ -92,12 +104,14 @@ function buildSnowland(root, N) {
 
   /* ---------------- snow-laden pines, built in chunks along the path so the camera can cull them ---------------- */
   const chunks = new Map();
-  const pine = (x, z, h) => {
-    const key = Math.floor(-z / 16); let b = chunks.get(key); if (!b) { b = new Batch(MAT.cloth); chunks.set(key, b); }
+  /* `ghost` draws the same random numbers but adds nothing, so clearing the stage leaves every other tree where it was */
+  const pine = (x, z, h, ghost) => {
+    const key = Math.floor(-z / 16); let b = chunks.get(key); if (!b && !ghost) { b = new Batch(MAT.cloth); chunks.set(key, b); }
     const y0 = hgt(x, z), k = h / 5, green = pick(['#2b5a4b', '#2f6552', '#27544a', '#34705a']);
-    b.add(GEO.cyl(7), '#6b4a3a', TRS(x, y0 + 0.5 * k, z, 0, 0, 0, 0.16 * k, 1.0 * k, 0.16 * k));
+    if (!ghost) b.add(GEO.cyl(7), '#6b4a3a', TRS(x, y0 + 0.5 * k, z, 0, 0, 0, 0.16 * k, 1.0 * k, 0.16 * k));
     for (let t = 0; t < 4; t++) {
       const R = (1.55 - t * 0.34) * k, ph = (1.45 - t * 0.06) * k, yb = y0 + (0.85 + t * 0.92) * k, f = 0.58, ry = rnd(0, 3);
+      if (ghost) continue;
       b.add(GEO.cone(9), green, TRS(x, yb + ph / 2, z, 0, ry, 0, R, ph, R));
       b.add(GEO.cone(9), '#f4f8ff', TRS(x, yb + ph * (1 - f) + (ph * f) / 2, z, 0, ry, 0, R * f * 1.07, ph * f, R * f * 1.07));
     }
@@ -107,7 +121,7 @@ function buildSnowland(root, N) {
     const s = rnd(-6, LEN - 4), sd = rnd(0, 1) < 0.5 ? -1 : 1, off = 4.6 + Math.pow(rnd(0, 1), 1.6) * 30;
     const q = side(clamp(s, 0, LEN), sd, off); q.x += rnd(-1.2, 1.2); q.z += rnd(-1.2, 1.2);
     if (dPath(q.x, q.z) < 4.2) continue;
-    pine(q.x, q.z, rnd(3.2, 7.8) * (off > 18 ? 1.25 : 1));
+    pine(q.x, q.z, rnd(3.2, 7.8) * (off > 18 ? 1.25 : 1), dStage(q.x, q.z) < SR + 3.4);
   }
   for (let i = 0; i < 70; i++) { const sd = i % 2 ? 1 : -1, x = sd * rnd(36, 70), z = rnd(-160, 20); pine(x, z, rnd(7, 11)); }
   for (const b of chunks.values()) { const m = b.build({ cast: false, receive: false }); m.matrixAutoUpdate = false; m.updateMatrix(); root.add(m); }
@@ -115,8 +129,8 @@ function buildSnowland(root, N) {
   /* ---------------- ice crystals beside the path ---------------- */
   const iceB = new Batch(MAT3.ice), crystal = lathe([[0, 0], [0.42, 0.06], [0.5, 0.9], [0.18, 1.5], [0, 1.9]], 6, 0);
   for (let s = 6; s < LEN - 8; s += rnd(5, 8)) {
-    const q = side(s, rnd(0, 1) < 0.5 ? -1 : 1, rnd(3.6, 6.5)), y0 = hgt(q.x, q.z);
-    for (let k = 0, n = 3 + rndi(0, 2); k < n; k++) { const a = rnd(0, TAU), d = rnd(0, 0.9), sc = rnd(0.5, 1.5); iceB.add(crystal, '#ffffff', TRS(q.x + Math.cos(a) * d, y0, q.z + Math.sin(a) * d, rnd(-0.25, 0.25), rnd(0, TAU), rnd(-0.25, 0.25), sc * 0.6, sc * 1.2, sc * 0.6)); }
+    const q = side(s, rnd(0, 1) < 0.5 ? -1 : 1, rnd(3.6, 6.5)), y0 = hgt(q.x, q.z), ghost = dStage(q.x, q.z) < SR + 2.6;
+    for (let k = 0, n = 3 + rndi(0, 2); k < n; k++) { const a = rnd(0, TAU), d = rnd(0, 0.9), sc = rnd(0.5, 1.5), m = TRS(q.x + Math.cos(a) * d, y0, q.z + Math.sin(a) * d, rnd(-0.25, 0.25), rnd(0, TAU), rnd(-0.25, 0.25), sc * 0.6, sc * 1.2, sc * 0.6); if (!ghost) iceB.add(crystal, '#ffffff', m); }
   }
   root.add(iceB.build({ cast: false }));
 
