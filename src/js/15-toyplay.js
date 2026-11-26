@@ -151,7 +151,7 @@ const Toy = {
     G.mode = 'loading'; G.locked = true;
     UI.hide('hud'); UI.hide('controls'); UI.prompt(null);
     Sound.stopMusic(0.6);
-    Snow.leave();
+    Snow.leave(); Sweet.leave();
     const fresh = !this.W;
     if (fresh) await this.ensure(); else await UI.fade(1, 0.4);
     RUN_ID++;

@@ -1,11 +1,11 @@
-// How the three chapters hand over to each other: clear card buttons, stage visibility, camera, audio and HUD state.
+// How the four chapters hand over to each other: clear card buttons, stage visibility, camera, audio and HUD state.
 const { open } = require('./harness.cjs');
 (async () => {
   const h = await open({ tag: 'fl' });
   const { ev, shot, until, page } = h;
   let fails = 0;
   const ok = (name, cond, extra) => { if (!cond) fails++; console.log(cond ? 'PASS' : 'FAIL', name, extra === undefined ? '' : JSON.stringify(extra)); };
-  const state = () => ev(() => { const n = window.__nut; return { ch: n.G.chapter, mode: n.G.mode, mansion: n.World.W1.root.visible, toy: !!n.Toy.W && n.Toy.W.root.visible, snow: !!n.Snow.W && n.Snow.W.root.visible, view: !!(n.camera.view && n.camera.view.enabled), running: n.Rhythm.running, hold: !!n.Sound.hold, ctx: n.Sound.ctx && n.Sound.ctx.state, plaque: document.getElementById('plTitle').textContent, max: document.getElementById('cntMax').textContent, rhythmUI: !document.getElementById('rhythm').hidden, bright: document.getElementById('chapterCard').classList.contains('bright') }; });
+  const state = () => ev(() => { const n = window.__nut; return { ch: n.G.chapter, mode: n.G.mode, mansion: n.World.W1.root.visible, toy: !!n.Toy.W && n.Toy.W.root.visible, snow: !!n.Snow.W && n.Snow.W.root.visible, sweet: !!n.Sweet.W && n.Sweet.W.root.visible, recital: n.Recital.running, view: !!(n.camera.view && n.camera.view.enabled), running: n.Rhythm.running, hold: !!n.Sound.hold, ctx: n.Sound.ctx && n.Sound.ctx.state, plaque: document.getElementById('plTitle').textContent, max: document.getElementById('cntMax').textContent, rhythmUI: !document.getElementById('rhythm').hidden, bright: document.getElementById('chapterCard').classList.contains('bright') }; });
   const explore = (label) => until(() => window.__nut.G.chapter === 2 && window.__nut.G.phase === 'explore' && window.__nut.G.mode === 'play', 300000, label);
 
   /* chapter I → its clear card offers chapter II */
@@ -58,10 +58,28 @@ const { open } = require('./harness.cjs');
   s = await state();
   ok('pause menu "처음부터 다시" restarts chapter III (not another chapter)', s.ch === 3 && s.running && !s.hold && s.ctx === 'running', s);
   await ev(() => { window.__nut.DEBUG.timeScale = 1; });
+
+  /* chapter III → its clear card offers chapter IV */
+  await ev(() => { const n = window.__nut; n.Rhythm.stop(); n.Snow.clear(); });
+  const c3 = await ev(() => ({ label: document.getElementById('btnClearNext').textContent, hidden: document.getElementById('btnClearNext').hidden, text: document.getElementById('clrUnlock').textContent }));
+  ok('chapter III clear card: "제4장으로 떠나기" and a line about chapter IV', c3.label === '제4장으로 떠나기' && !c3.hidden && /제4장/.test(c3.text), c3);
+  await ev(() => { window.__nut.DEBUG.timeScale = 4; document.getElementById('btnClearNext').click(); });
+  await until(() => window.__nut.G.chapter === 4 && window.__nut.G.phase === 'explore' && window.__nut.G.mode === 'play', 300000, 'chapter IV from the clear card');
+  await ev(() => { window.__nut.DEBUG.timeScale = 1; });
+  s = await state();
+  ok('chapter IV: only the kingdom of sweets is on stage; no song, no lanes, no camera offset', s.ch === 4 && s.sweet && !s.snow && !s.toy && !s.mansion && !s.running && !s.recital && !s.rhythmUI && !s.view && s.plaque === '과자의 왕국' && s.max === '/ 3', s);
+  await ev(() => { window.__nut.Story.pause(); });
+  const walk4 = await ev(() => document.getElementById('helpText').textContent);
+  ok('pause menu in chapter IV (walking) shows the walking controls', /WASD/.test(walk4), walk4);
+  await ev(() => { window.__nut.DEBUG.timeScale = 4; document.getElementById('btnRestart').click(); });
+  await until(() => window.__nut.G.chapter === 4 && window.__nut.G.phase === 'explore' && window.__nut.G.mode === 'play', 300000, 'restart chapter IV');
+  await ev(() => { window.__nut.DEBUG.timeScale = 1; });
+  s = await state();
+  ok('pause menu "처음부터 다시" restarts chapter IV (not another chapter)', s.ch === 4 && s.sweet && !s.hold && s.ctx === 'running', s);
   await ev(() => { window.__nut.Story.toTitle(); });
   await page.waitForTimeout(1000);
   s = await state();
-  ok('title: the mansion again, everything else cleaned up', s.ch === 1 && s.mansion && !s.toy && !s.snow && !s.view && !s.running && !s.hold && s.max === '/ 12', s);
+  ok('title: the mansion again, everything else cleaned up', s.ch === 1 && s.mansion && !s.toy && !s.snow && !s.sweet && !s.view && !s.running && !s.recital && !s.hold && s.max === '/ 12', s);
   console.log(fails ? `FAILED ${fails}` : 'ALL PASSED');
   await h.finish();
   process.exit(fails ? 1 : 0);

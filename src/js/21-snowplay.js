@@ -76,7 +76,7 @@ const Snow = {
     G.mode = 'loading'; G.locked = true;
     UI.hide('hud'); UI.hide('controls'); UI.prompt(null);
     Sound.stopMusic(0.6);
-    Toy.leave();
+    Toy.leave(); Sweet.leave();
     const fresh = !this.W;
     if (fresh) await this.ensure(); else await UI.fade(1, 0.4);
     RUN_ID++;
@@ -345,6 +345,7 @@ const Snow = {
     await guard(UI.say('snowfairy', '괜찮아요. 눈은 다시 내려와요. 한 번 더 해 볼까요?'));
     G.mode = 'clear'; G.locked = true;
     UI.hide('hud'); UI.hide('rhythm');
+    this.retryCard = true;
     UI.clearCard({
       kicker: '제3장 · 다시 시도', title: '눈송이의 숲', icon: 'i-snow',
       stats: [['모은 눈송이', `${caught} / ${need}`], ['정확한 눈송이', `${st.perfect} / ${N}`], ['좋음 · 놓침', `${st.good} · ${st.miss}`]],
@@ -355,6 +356,7 @@ const Snow = {
   /* the same song again, from the start: the path is snowed in again and the counter is back to zero */
   retry() {
     if (!this.W) return;
+    this.retryCard = false;
     RUN_ID++; Tasks.clear(); UI.closeDialog();
     ['screenClear', 'screenPause', 'screenMap', 'screenTitle'].forEach((id) => UI.hide(id));
     this.reset();
@@ -374,10 +376,11 @@ const Snow = {
     Save.data.done.snow = { perfect: fin.perfect, good: fin.good, miss: fin.miss, total: N, opened: this.pct, best: Math.max(prev ? prev.best || 0 : 0, fin.perfect) };
     Save.data.unlocked = Math.max(Save.data.unlocked, 4);
     Save.write();
+    this.retryCard = false;
     UI.clearCard({
       kicker: '제3장 · 이야기 끝', title: '눈송이의 숲', icon: 'i-snow',
       stats: [['열린 숲길', `${this.pct}%`], ['정확한 눈송이', `${fin.perfect} / ${N}`], ['좋음 · 놓침', `${fin.good} · ${fin.miss}`]],
-      unlock: '<b>제4장 · 과자의 왕국</b>으로 가는 길이 열렸어요!<br><span>다음 무대는 지금 정성껏 꾸미고 있어요.</span>', next: false,
+      unlock: '<b>제4장 · 과자의 왕국</b>이 열렸어요!<br><span>세 나라의 춤 리허설을 도와 사탕 다리를 놓아 주세요.</span>', next: true, nextLabel: '제4장으로 떠나기',
     });
     UI.show('screenClear');
   },

@@ -14,8 +14,12 @@ function buildDoll(kind, opts = {}) {
     snowfairy: { dress: '#bcd8f4', dress2: '#e8f2fd', trim: '#ffffff', sash: '#8db5e6', hair: '#cdd9ee', hair2: '#f1f6fd', legs: '#e8f0fa', shoe: '#b6cde9', hip: 0.6, legLen: 0.41, face: TEX.faceFairy, bodice: '#9cc0ea', accent: '#a9cdf2', gem: '#ffffff', metal: '#dbe6f5', metal2: '#f1f7ff', crown: '#8fd2ff' },
     /* the snowflakes of the corps de ballet: white tutus with silver and ice-blue, a softer cousin of the snow fairy */
     snowflake: { dress: '#ffffff', dress2: '#eef5ff', trim: '#ffffff', sash: '#c3d8f2', hair: '#e2dccf', hair2: '#f6f2ea', legs: '#f2f5fb', shoe: '#d9e5f5', hip: 0.6, legLen: 0.41, face: TEX.faceFairy, bodice: '#e4eefa', accent: '#b9d4f1', gem: '#ffffff', metal: '#e3ebf6', metal2: '#ffffff', crown: '#cfe8ff' },
+    /* the three dancers of the Kingdom of Sweets (chapter IV): the fairy rig without wings or wand, each with her own costume and props */
+    choco: { dancer: 'choco', dress: '#9a2236', dress2: '#c9374e', trim: '#2a1216', sash: '#e2b85e', hair: '#3a2118', hair2: '#5b3726', legs: '#f2d8d2', shoe: '#2a1418', hip: 0.6, legLen: 0.41, face: TEX.faceFairy, bodice: '#5e1626', accent: '#e8475e', gem: '#f3cf7a', metal: '#e2b85e', metal2: '#f6dd96' },
+    coffee: { dancer: 'coffee', dress: '#5b2f72', dress2: '#2f8790', trim: '#f2d48a', sash: '#e9c46e', hair: '#221726', hair2: '#3d2c44', legs: '#ecd6dc', shoe: '#e9c46e', hip: 0.6, legLen: 0.41, face: TEX.faceFairy, bodice: '#3e2054', accent: '#53b9b4', gem: '#f2d48a', metal: '#e9c46e', metal2: '#fff0c2' },
+    tea: { dancer: 'tea', dress: '#3a957a', dress2: '#f6edd8', trim: '#d13a4c', sash: '#e0b25c', hair: '#1f1a20', hair2: '#3a3138', legs: '#f4e2e2', shoe: '#d13a4c', hip: 0.6, legLen: 0.41, face: TEX.faceFairy, bodice: '#2f7d68', accent: '#e8566e', gem: '#ffe08a', metal: '#e0b25c', metal2: '#ffe9a8' },
   }[kind];
-  const isClara = kind === 'clara', isFairy = kind === 'fairy' || kind === 'snowfairy' || kind === 'snowflake', isPrince = kind === 'prince';
+  const isClara = kind === 'clara', isFairy = kind === 'fairy' || kind === 'snowfairy' || kind === 'snowflake' || !!C.dancer, isPrince = kind === 'prince';
   const root = new THREE.Group();
   const body = new THREE.Group(); body.position.y = C.hip; root.add(body);
   const skin = PAL.skin;
@@ -36,6 +40,17 @@ function buildDoll(kind, opts = {}) {
     sk.add(hem, C.trim, TRS(0, -0.19, 0));
     // embroidered gold dots near the hem
     for (let i = 0; i < 18; i++) { const a = (i / 18) * TAU; sk.add(GEO.sph(6, 4), '#e8c070', TRS(Math.sin(a) * 0.335, -0.115, Math.cos(a) * 0.335, 0, 0, 0, 0.014)); }
+  } else if (C.dancer === 'coffee') {
+    // a long, flowing skirt in two silks: plum over teal, with a gold hem
+    const g = lathe([[0.0, 0.2], [0.13, 0.2], [0.16, 0.1], [0.24, -0.08], [0.32, -0.28], [0.38, -0.44], [0.395, -0.47]], 40, 22);
+    deform(g, (v) => { const a = Math.atan2(v.x, v.z), w = smoothstep(0.1, -0.4, v.y); const k = 1 + 0.07 * w * Math.sin(a * 9); v.x *= k; v.z *= k; });
+    sk.add(g, (x, y, z) => new THREE.Color(C.dress).lerp(new THREE.Color(C.dress2), 0.5 + 0.5 * Math.sin(Math.atan2(x, z) * 9)).lerp(new THREE.Color(C.dress), smoothstep(-0.1, 0.18, y)));
+    const hem = new THREE.TorusGeometry(0.39, 0.016, 6, 60); hem.rotateX(Math.PI / 2);
+    deform(hem, (v) => { const a = Math.atan2(v.x, v.z); const k = 1 + 0.07 * Math.sin(a * 9); v.x *= k; v.z *= k; });
+    sk.add(hem, C.trim, TRS(0, -0.465, 0));
+    const belt = new THREE.TorusGeometry(0.15, 0.022, 6, 32); belt.rotateX(Math.PI / 2);
+    sk.add(belt, C.trim, TRS(0, 0.18, 0));
+    for (let i = 0; i < 14; i++) { const a = (i / 14) * TAU; sk.add(GEO.sph(6, 4), C.metal2, TRS(Math.sin(a) * 0.165, 0.135, Math.cos(a) * 0.165, 0, 0, 0, 0.018)); }
   } else if (isFairy) {
     for (let L = 0; L < 3; L++) {
       const R = 0.52 - L * 0.06, y0 = 0.07 + L * 0.035;
@@ -141,14 +156,39 @@ function buildDoll(kind, opts = {}) {
     hb.pop();
   } else if (isFairy) {
     hb.add(new THREE.SphereGeometry(0.27, q(30), q(18), 0, TAU, 0, 1.7), hairCol, TRS(0, 0.006, -0.014, -0.42, 0, 0));
-    hb.add(GEO.sph(q(18), q(14)), hairCol, TRS(0, 0.21, -0.17, 0, 0, 0, 0.1, 0.095, 0.1));
-    hb.add(GEO.torus(0.1, 0.022, q(8, 4), q(24)), C.hair2, TRS(0, 0.19, -0.15, -0.6, 0, 0, 1, 1, 0.8));
+    if (C.dancer !== 'tea') {
+      hb.add(GEO.sph(q(18), q(14)), hairCol, TRS(0, 0.21, -0.17, 0, 0, 0, 0.1, 0.095, 0.1));
+      hb.add(GEO.torus(0.1, 0.022, q(8, 4), q(24)), C.hair2, TRS(0, 0.19, -0.15, -0.6, 0, 0, 1, 1, 0.8));
+    }
     for (const s of [-1, 1]) hb.add(GEO.sph(q(12), q(8)), hairCol, TRS(s * 0.19, 0.02, 0.1, 0, 0, s * 0.3, 0.07, 0.1, 0.06));
-    // tiara
-    const tg = new THREE.TorusGeometry(0.2, 0.012, q(6), q(30), Math.PI * 0.9);
-    hb.add(tg, C.metal || '#e8c070', TRS(0, 0.16, 0.04, -0.75, 0, Math.PI * 0.05));
-    for (let i = 0; i < 7; i++) { const a = lerp(0.35, Math.PI - 0.35, i / 6); hb.add(GEO.cone(6), C.metal2 || '#f0d080', TRS(Math.cos(a) * 0.2, 0.16 + Math.sin(a) * 0.2 * 0.73, 0.04 + Math.sin(a) * 0.2 * 0.68, -0.75 + Math.PI * 0.0, 0, Math.cos(a) * -0.9, 0.018, i === 3 ? 0.09 : 0.05, 0.018)); }
-    hb.add(GEO.sph(10, 8), C.crown || '#f28aa8', TRS(0, 0.33, 0.17, 0, 0, 0, 0.026));
+    if (!C.dancer) {
+      // tiara
+      const tg = new THREE.TorusGeometry(0.2, 0.012, q(6), q(30), Math.PI * 0.9);
+      hb.add(tg, C.metal || '#e8c070', TRS(0, 0.16, 0.04, -0.75, 0, Math.PI * 0.05));
+      for (let i = 0; i < 7; i++) { const a = lerp(0.35, Math.PI - 0.35, i / 6); hb.add(GEO.cone(6), C.metal2 || '#f0d080', TRS(Math.cos(a) * 0.2, 0.16 + Math.sin(a) * 0.2 * 0.73, 0.04 + Math.sin(a) * 0.2 * 0.68, -0.75 + Math.PI * 0.0, 0, Math.cos(a) * -0.9, 0.018, i === 3 ? 0.09 : 0.05, 0.018)); }
+      hb.add(GEO.sph(10, 8), C.crown || '#f28aa8', TRS(0, 0.33, 0.17, 0, 0, 0, 0.026));
+    } else if (C.dancer === 'choco') {
+      // a tall comb behind the bun and a red rose over one ear
+      hb.add(GEO.torus(0.15, 0.022, 6, 22, Math.PI), '#2a1216', TRS(0, 0.25, -0.24, -0.25, 0, 0, 1, 1.25, 1));
+      for (let i = 0; i < 7; i++) { const a = (i / 6) * Math.PI; hb.add(GEO.sph(6, 4), C.metal2, TRS(Math.cos(a) * 0.15, 0.25 + Math.sin(a) * 0.19, -0.24 - Math.sin(a) * 0.05, 0, 0, 0, 0.016)); }
+      hb.add(GEO.sph(12, 10), C.accent, TRS(0.2, 0.13, 0.08, 0, 0, 0, 0.058, 0.05, 0.05));
+      for (let i = 0; i < 5; i++) { const a = (i / 5) * TAU; hb.add(GEO.sph(8, 6), '#c42a40', TRS(0.2 + Math.cos(a) * 0.045, 0.13 + Math.sin(a) * 0.04, 0.09, 0, 0, 0, 0.032, 0.026, 0.02)); }
+      hb.add(GEO.sph(8, 6), '#3f7a46', TRS(0.25, 0.08, 0.06, 0, 0, 0.7, 0.045, 0.016, 0.022));
+    } else if (C.dancer === 'coffee') {
+      // a gold circlet with a teal jewel and little gold coins across the brow
+      const cg = new THREE.TorusGeometry(0.262, 0.012, 6, 40); cg.rotateX(Math.PI / 2);
+      hb.add(cg, C.metal, TRS(0, 0.1, -0.02, -0.32, 0, 0));
+      hb.add(GEO.sph(12, 10), C.accent, TRS(0, 0.135, 0.255, 0, 0, 0, 0.032, 0.04, 0.02));
+      for (let i = -3; i <= 3; i++) { if (!i) continue; const a = i * 0.24; hb.add(GEO.cyl(8), C.metal2, TRS(Math.sin(a) * 0.255, 0.065 - Math.abs(i) * 0.004, Math.cos(a) * 0.245, Math.PI / 2, 0, -a, 0.016, 0.006, 0.016)); }
+    } else {
+      // two buns on top, tied with red ribbons and small blossoms
+      for (const s of [-1, 1]) {
+        hb.add(GEO.sph(q(16), q(12)), hairCol, TRS(s * 0.16, 0.2, -0.04, 0, 0, 0, 0.085, 0.08, 0.085));
+        hb.add(GEO.torus(0.075, 0.016, 6, 20), C.trim, TRS(s * 0.15, 0.16, -0.035, Math.PI / 2 + s * 0.3, 0, 0, 1, 1, 0.8));
+        for (let i = 0; i < 3; i++) { const a = i * 2.1 + (s > 0 ? 0.5 : 0); hb.add(GEO.sph(6, 4), i % 2 ? '#ffd1dc' : C.accent, TRS(s * 0.16 + Math.cos(a) * 0.07, 0.24 + Math.sin(a) * 0.03, 0.02, 0, 0, 0, 0.022)); }
+      }
+      hb.add(GEO.sph(10, 8), '#1f1a20', TRS(0, 0.13, 0.2, -0.6, 0, 0, 0.17, 0.04, 0.06));
+    }
   } else {
     hb.add(new THREE.SphereGeometry(0.27, 30, 18, 0, TAU, 0, 1.68), hairCol, TRS(0, 0.006, -0.014, -0.32, 0, 0));
     hb.add(GEO.sph(12, 10), hairCol, TRS(0.04, 0.2, 0.15, -0.4, 0, -0.3, 0.13, 0.07, 0.1));
@@ -212,9 +252,26 @@ function buildDoll(kind, opts = {}) {
   };
   const legL = mkLeg(1), legR = mkLeg(-1);
 
+  /* --- the sweets dancers' props: castanets (chocolate) or a paper fan (tea); the coffee dancer's veil is added by the chapter --- */
+  if (C.dancer === 'choco') {
+    for (const arm of [armL, armR]) {
+      const cb = new Batch(MAT.gloss);
+      for (const s of [-1, 1]) cb.add(GEO.sph(10, 8), '#3b1d14', TRS(s * 0.014, -0.03, 0.022, 0, 0, 0, 0.012, 0.04, 0.036));
+      cb.add(GEO.torus(0.014, 0.005, 4, 10), C.accent, TRS(0, 0.012, 0.02, 0, Math.PI / 2, 0));
+      arm.hand.add(cb.build());
+    }
+  } else if (C.dancer === 'tea') {
+    const fb = new Batch(MAT.satin.clone());
+    fb.mat.side = THREE.DoubleSide;
+    fb.add(new THREE.CircleGeometry(0.22, 18, Math.PI * 1.08, Math.PI * 0.84), (x, y) => { const a = Math.atan2(y, x), r = Math.hypot(x, y); return r > 0.19 ? C.trim : Math.floor(a * 9) % 2 ? '#f6edd8' : '#ffe3e8'; }, TRS(0, -0.01, 0.03));
+    for (let i = 0; i <= 6; i++) { const a = Math.PI * (1.1 + (i / 6) * 0.8); fb.add(GEO.box(), '#8a5a3a', TRS(Math.cos(a) * 0.1, -0.01 + Math.sin(a) * 0.1, 0.035, 0, 0, a + Math.PI / 2, 0.006, 0.2, 0.004)); }
+    const fan = fb.build(); fan.castShadow = false;
+    armR.hand.add(fan);
+  }
+
   /* --- fairy extras: wand and wings --- */
   let wand = null, wings = null;
-  if (isFairy) {
+  if (isFairy && !C.dancer) {
     const wb = new Batch(MAT.gold);
     wb.add(GEO.cyl(8), C.metal || '#e8c070', TRS(0, 0.18, 0, 0, 0, 0, 0.008, 0.36, 0.008));
     wb.add(starGeo(0.06, 0.026, 0.02, 0.012), C.metal2 || '#ffe08a', TRS(0, 0.38, 0, 0, 0, 0));
@@ -256,7 +313,7 @@ function updateDoll(d, dt, speed, grounded, vy) {
   if (a.walk > 0.03) a.phase += dt * (4.5 + 7.5 * a.walk);
   const s = Math.sin(a.phase);
   const W = a.walk * (1 - a.air), A = a.air;
-  const fairy = d.kind === 'fairy' || d.kind === 'snowfairy' || d.kind === 'snowflake', prince = d.kind === 'prince';
+  const fairy = d.kind === 'fairy' || d.kind === 'snowfairy' || d.kind === 'snowflake' || !!C.dancer, prince = d.kind === 'prince';
   // rest pose
   let by = C.hip + Math.sin(a.t * 2.1) * 0.006, lean = 0, twist = 0, roll = 0;
   let lsx = -0.12, lsz = 0.2, rsx = -0.12, rsz = -0.2, lel = -0.45, rel = -0.45, llx = 0, rlx = 0, llz = 0, rlz = 0;
@@ -323,6 +380,29 @@ function updateDoll(d, dt, speed, grounded, vy) {
         break;
       case 'pose': // fairy arabesque
         lsz = lerp(lsz, 2.7, env); rsz = lerp(rsz, -1.4, env); rsx = lerp(rsx, -0.9, env); rlx = lerp(rlx, 1.1, env); lean += 0.25 * env; lel = lerp(lel, -0.6, env);
+        break;
+      /* the dances of the Kingdom of Sweets (chapter IV) */
+      case 'castanet': // arms curved high over the head, wrists flicking, a turn of the shoulders
+        lsz = lerp(lsz, 2.45, env); rsz = lerp(rsz, -2.45, env); lsx = lerp(lsx, -0.35, env); rsx = lerp(rsx, -0.35, env);
+        lel = lerp(lel, -1.0, env); rel = lerp(rel, -1.0, env);
+        twist += Math.sin(k * TAU) * 0.22 * env; hy += Math.sin(k * TAU) * 0.25 * env; by += 0.025 * env; flare = lerp(flare, 1.1, env);
+        break;
+      case 'stomp': { // hands on the hips, a knee comes up and the heel comes down
+        const up = k < 0.45 ? Ease.out(k / 0.45) : 1 - Ease.in(Math.min(1, (k - 0.45) / 0.2));
+        rlx = lerp(rlx, -1.05, up); by -= 0.045 * env; lean += 0.06 * env;
+        lsz = lerp(lsz, 0.62, env); rsz = lerp(rsz, -0.62, env); lsx = lerp(lsx, 0.25, env); rsx = lerp(rsx, 0.25, env); lel = lerp(lel, -1.85, env); rel = lerp(rel, -1.85, env);
+        break;
+      }
+      case 'veil': { // slow arms sweeping side to side, the body swaying with them
+        const w = Math.sin(k * TAU);
+        lsz = lerp(lsz, 1.35 + w * 0.65, env); rsz = lerp(rsz, -1.35 + w * 0.65, env); lsx = lerp(lsx, -0.45, env); rsx = lerp(rsx, -0.45, env);
+        lel = lerp(lel, -0.35, env); rel = lerp(rel, -0.35, env); roll += w * 0.1 * env; twist += w * 0.18 * env; by += Math.sin(k * TAU * 2) * 0.02 * env; hz -= w * 0.12 * env;
+        break;
+      }
+      case 'hop': // a quick little hop, arms held in front as if with a fan
+        by += Math.sin(k * Math.PI) * 0.16; llx = lerp(llx, -0.55, env); rlx = lerp(rlx, -0.55, env); lean -= 0.05 * env;
+        lsx = lerp(lsx, -1.1, env); lsz = lerp(lsz, 0.35, env); rsx = lerp(rsx, -1.5, env); rsz = lerp(rsz, -0.25, env); lel = lerp(lel, -1.1, env); rel = lerp(rel, -0.6, env);
+        flare = lerp(flare, 1.12, env);
         break;
     }
     if (k >= 1) { a.action = null; a.spin = 0; }

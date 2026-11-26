@@ -14,6 +14,10 @@ const UI = {
     mouse: { name: '생쥐 보초' },
     soldier: { name: '장난감 병정' },
     snowfairy: { name: '눈꽃 요정' },
+    choco: { name: '초콜릿 무용수' },
+    coffee: { name: '커피 무용수' },
+    tea: { name: '차 무용수' },
+    baker: { name: '생강과자 요리사' },
   },
   init() {
     try { document.documentElement.style.setProperty('--paper', `url(${paperDataURL()})`); } catch (e) { /* no paper grain */ }

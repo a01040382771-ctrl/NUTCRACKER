@@ -5,7 +5,7 @@ const CHAPTERS = [
   { id: 'mansion', no: '제1장', roman: 'I', title: '크리스마스 저택', en: 'The Christmas Mansion', icon: 'i-house', desc: '크리스마스 이브, 슈탈바움 저택의 거실. 드로셀마이어 아저씨의 선물과 빛을 잃은 트리의 별, 그리고 자정의 비밀이 클라라를 기다려요.' },
   { id: 'toys', no: '제2장', roman: 'II', title: '장난감 왕국', en: 'The Toy Kingdom', icon: 'i-soldier', desc: '커다래진 트리 아래, 양철 병정과 태엽 인형이 사는 장난감 왕국. 생쥐 왕이 흩뜨려 놓은 왕궁 조각 열두 개를 찾아 설계도대로 다시 조립해야 해요.' },
   { id: 'snow', no: '제3장', roman: 'III', title: '눈송이의 숲', en: 'The Snowflake Forest', icon: 'i-snow', desc: '눈꽃 요정이 길을 지키는 은빛 숲. 눈송이 왈츠에 맞춰 내려오는 눈송이를 톡톡 눌러, 눈에 파묻힌 숲길을 열어 주세요.' },
-  { id: 'sweets', no: '제4장', roman: 'IV', title: '과자의 왕국', en: 'The Kingdom of Sweets', icon: 'i-candy', desc: '사탕 지팡이 다리와 초콜릿 강이 흐르는 달콤한 나라. 과자 장인들이 클라라를 위한 축제를 준비하고 있어요.' },
+  { id: 'sweets', no: '제4장', roman: 'IV', title: '과자의 왕국', en: 'The Kingdom of Sweets', icon: 'i-candy', desc: '초콜릿 강이 흐르는 달콤한 나라에서 클라라를 위한 축제가 준비되고 있어요. 스페인 춤, 아라비아 춤, 중국 춤 무용수들의 리허설을 도와 궁전으로 가는 사탕 다리를 놓아 주세요.' },
   { id: 'palace', no: '제5장', roman: 'V', title: '설탕 요정의 궁전', en: 'The Sugar Plum Palace', icon: 'i-crown', desc: '설탕 결정으로 지은 반짝이는 궁전. 설탕 요정이 마지막 춤으로 클라라의 꿈을 완성해 줄 거예요.' },
 ];
 const Save = {
@@ -41,15 +41,16 @@ const fmtTime = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padSt
 const World = {
   W1: null,
   use(ch) {
-    const toy = ch === 2 && !!Toy.W, snow = ch === 3 && !!Snow.W;
-    G.chapter = snow ? 3 : toy ? 2 : 1;
-    this.W1.root.visible = !toy && !snow;
+    const toy = ch === 2 && !!Toy.W, snow = ch === 3 && !!Snow.W, sweet = ch === 4 && !!Sweet.W;
+    G.chapter = sweet ? 4 : snow ? 3 : toy ? 2 : 1;
+    this.W1.root.visible = !toy && !snow && !sweet;
     if (Toy.W) Toy.W.root.visible = toy;
     if (Snow.W) Snow.W.root.visible = snow;
-    W = snow ? Snow.W : toy ? Toy.W : this.W1;
-    scene.fog = snow ? Snow.fog : toy ? Toy.fog : null;
-    scene.background = snow ? Snow.bg : toy ? Toy.bg : TEX.bg;
-    Cam.cfg = toy ? CAM2 : CAM1;
+    if (Sweet.W) Sweet.W.root.visible = sweet;
+    W = sweet ? Sweet.W : snow ? Snow.W : toy ? Toy.W : this.W1;
+    scene.fog = sweet ? Sweet.fog : snow ? Snow.fog : toy ? Toy.fog : null;
+    scene.background = sweet ? Sweet.bg : snow ? Snow.bg : toy ? Toy.bg : TEX.bg;
+    Cam.cfg = sweet ? CAM4 : toy ? CAM2 : CAM1;
     renderer.shadowMap.needsUpdate = true;
   },
 };
@@ -78,23 +79,37 @@ const Story = {
       if (this.mapSel === 0) { Sound.sfxUI(); this.startChapter(); }
       else if (this.mapSel === 1 && Save.data.unlocked >= 2) { Sound.sfxUI(); Toy.start(); }
       else if (this.mapSel === 2 && Save.data.unlocked >= 3) { Sound.sfxUI(); Snow.start(); }
+      else if (this.mapSel === 3 && Save.data.unlocked >= 4) { Sound.sfxUI(); Sweet.start(); }
     });
-    on('btnContinue', () => { if (this.mapSel === 1 && Save.data.unlocked >= 2 && Toy.checkpoint()) { Sound.sfxUI(); Toy.start(true); } });
+    on('btnContinue', () => {
+      if (this.mapSel === 1 && Save.data.unlocked >= 2 && Toy.checkpoint()) { Sound.sfxUI(); Toy.start(true); }
+      else if (this.mapSel === 3 && Save.data.unlocked >= 4 && Sweet.checkpoint()) { Sound.sfxUI(); Sweet.start(true); }
+    });
     on('btnPause', () => this.pause());
     on('btnResume', () => this.resume());
-    on('btnRestart', () => { Sound.sfxUI(); if (G.chapter === 3) Snow.start(); else if (G.chapter === 2) Toy.start(); else this.startChapter(); });
+    on('btnRestart', () => { Sound.sfxUI(); this.replay(); });
+    on('btnRcMain', () => { Sound.sfxUI(); Sweet.cardPress('main'); });
+    on('btnRcSub', () => { Sound.sfxUI(); Sweet.cardPress('sub'); });
     on('btnToMap', () => { Sound.sfxUI(); this.toTitle(); this.openMap(); });
     on('btnSound', () => this.toggleSound());
     on('btnSoundTitle', () => this.toggleSound());
     on('btnQuality', () => { const order = ['auto', 'high', 'low']; const q = order[(order.indexOf(Perf.quality) + 1) % 3]; setQuality(q); Save.data.quality = q; Save.write(); this.syncToggles(); });
     on('btnClearMap', () => { Sound.sfxUI(); const next = Math.min(CHAPTERS.length - 1, G.chapter); this.toTitle(); this.mapSel = next; this.openMap(); });
-    on('btnClearReplay', () => { Sound.sfxUI(); if (G.chapter === 3) Snow.start(); else if (G.chapter === 2) Toy.start(); else this.startChapter(); });
+    on('btnClearReplay', () => { Sound.sfxUI(); this.replay(); });
     on('btnClearNext', () => { Sound.sfxUI(); this.clearNext(); });
     this.syncToggles();
   },
-  /* the "next chapter" button on a clear card: chapter I → II (resumable), chapter II → III */
+  /* the current chapter again, from its start */
+  replay() {
+    if (G.chapter === 4) Sweet.start(); else if (G.chapter === 3) Snow.start(); else if (G.chapter === 2) Toy.start(); else this.startChapter();
+  },
+  /* the "next chapter" button on a clear card: chapter I → II (resumable), II → III, III → IV (resumable); in chapter III it can also be the try-again card */
   clearNext() {
-    if (G.chapter === 3) { Snow.retry(); return; }   // only the try-again card has a next button in chapter III
+    if (G.chapter === 3) {
+      if (Snow.retryCard) { Snow.retry(); return; }
+      if (Sweet.checkpoint()) { this.toTitle(); this.mapSel = 3; this.openMap(); } else Sweet.start();
+      return;
+    }
     if (G.chapter === 2) Snow.start();
     else if (Toy.checkpoint()) { this.toTitle(); this.mapSel = 1; this.openMap(); }
     else Toy.start();
@@ -148,13 +163,13 @@ const Story = {
   /* ---------- screens ---------- */
   toTitle(first) {
     RUN_ID++; Tasks.clear(); UI.closeDialog();
-    Toy.leave(); Snow.leave(); World.use(1);
+    Toy.leave(); Snow.leave(); Sweet.leave(); World.use(1);
     this.resetWorld();
     G.mode = 'title'; G.locked = true;
     Cam.set([0, 6.6, 34], [0, 5.2, 0]); Cam.mode = 'title';
     W.theatre.set(0.34);
     stageSnow.visible = true;
-    ['hud', 'controls', 'screenMap', 'screenClear', 'screenPause', 'hint', 'toast'].forEach((id) => UI.hide(id));
+    ['hud', 'controls', 'screenMap', 'screenClear', 'screenPause', 'screenRehearse', 'hint', 'toast'].forEach((id) => UI.hide(id));
     UI.show('screenTitle');
     if (first) {
       const L = $('screenLoading'); L.style.transition = 'opacity .8s ease'; L.style.opacity = '0';
@@ -174,22 +189,22 @@ const Story = {
       const li = document.createElement('li');
       const b = document.createElement('button');
       b.className = `toc-item${unlocked ? '' : ' locked'}${i === this.mapSel ? ' sel' : ''}`;
-      const state = done ? (i === 2 ? `<svg><use href="#i-snow"/></svg>${done.opened}%` : i === 1 ? `<svg><use href="#i-block"/></svg>${done.pieces}/12` : `<svg><use href="#i-star"/></svg>${done.stars}/12`) : unlocked ? (i === 0 ? '별 12개' : i === 1 ? '조각 12개' : i === 2 ? '눈송이 리듬' : '준비 중') : '잠김';
+      const state = done ? (i === 3 ? '<svg><use href="#i-candy"/></svg>3/3' : i === 2 ? `<svg><use href="#i-snow"/></svg>${done.opened}%` : i === 1 ? `<svg><use href="#i-block"/></svg>${done.pieces}/12` : `<svg><use href="#i-star"/></svg>${done.stars}/12`) : unlocked ? (i === 0 ? '별 12개' : i === 1 ? '조각 12개' : i === 2 ? '눈송이 리듬' : i === 3 ? '춤 리허설 3개' : '준비 중') : '잠김';
       b.innerHTML = `<span class="toc-ico"><svg><use href="#${unlocked ? ch.icon : 'i-lock'}"/></svg></span><span class="toc-no">${ch.roman}</span><span class="toc-name">${ch.title}</span><span class="toc-state">${state}</span>`;
       b.addEventListener('click', () => { this.mapSel = i; Sound.sfxUI(); this.renderMap(); });
       li.appendChild(b); toc.appendChild(li);
     });
     const sel = this.mapSel, ch = CHAPTERS[sel], unlocked = sel < Save.data.unlocked, done = Save.data.done[ch.id];
-    const playable = unlocked && sel <= 2;
+    const playable = unlocked && sel <= 3;
     $('mapNo').textContent = `${ch.no} · Chapter ${ch.roman}`; $('mapTitle').textContent = ch.title; $('mapEn').textContent = ch.en; $('mapDesc').textContent = ch.desc;
-    const img = $('mapImg'), shot = sel === 0 ? this.roomShot : sel === 1 ? Toy.shot : sel === 2 ? Snow.shot : '';
+    const img = $('mapImg'), shot = sel === 0 ? this.roomShot : sel === 1 ? Toy.shot : sel === 2 ? Snow.shot : sel === 3 ? Sweet.shot : '';
     if (shot) { img.src = shot; img.hidden = false; $('mapArtIco').hidden = true; }
     else { img.hidden = true; $('mapArtIco').hidden = false; $('mapArtUse').setAttribute('href', `#${ch.icon}`); }
     const veil = $('mapLock');
     if (!unlocked) { veil.hidden = false; $('mapLockText').textContent = `${CHAPTERS[sel - 1].title}을 마치면 열려요`; }
     else if (!playable) { veil.hidden = false; $('mapLockText').textContent = '이 무대는 지금 정성껏 꾸미는 중이에요'; }
     else veil.hidden = true;
-    const cp = sel === 1 && unlocked ? Toy.checkpoint() : null;
+    const cp = sel === 1 && unlocked ? Toy.checkpoint() : null, cp4 = sel === 3 && unlocked ? Sweet.checkpoint() : null;
     let stats = '';
     if (sel === 0) stats = done ? `최고 기록 ${fmtTime(done.best || done.time)} · 별 ${done.stars}/12` : '마법의 별 12개 · 약 8–12분';
     else if (sel === 1 && unlocked) {
@@ -198,34 +213,41 @@ const Story = {
     } else if (sel === 2 && unlocked) {
       const cv = Rhythm.chart();
       stats = done ? `열린 숲길 ${done.opened}% · 정확 ${done.perfect}/${done.total} · 최고 정확 ${done.best}개` : `눈송이 ${cv.notes.length}개 · 리듬 구간 약 ${Math.round(cv.lengthSec)}초`;
+    } else if (sel === 3 && unlocked) {
+      const n4 = cp4 ? DANCE_ORDER.filter((id) => cp4.done[id]).length : 0;
+      if (cp4) stats = `저장된 진행 · 리허설 ${n4} / 3${done ? ` · 최고 기록 ${fmtTime(done.best || done.time)}` : ''}`;
+      else stats = done ? `리허설 3 / 3 · 최고 기록 ${fmtTime(done.best || done.time)}` : '스페인 · 아라비아 · 중국 춤 리허설 3개';
     }
     $('mapStats').textContent = stats;
-    const btn = $('btnPlayChapter'), cont = $('btnContinue');
+    const btn = $('btnPlayChapter'), cont = $('btnContinue'), anyCp = cp || cp4;
     btn.disabled = !playable;
-    btn.textContent = playable ? (cp ? '처음부터' : done ? '다시 펼치기' : '이야기 펼치기') : unlocked ? '곧 공개돼요' : '잠겨 있어요';
-    btn.classList.toggle('primary', !cp);
-    cont.hidden = !cp;
+    btn.textContent = playable ? (anyCp ? '처음부터' : done ? '다시 펼치기' : '이야기 펼치기') : unlocked ? '곧 공개돼요' : '잠겨 있어요';
+    btn.classList.toggle('primary', !anyCp);
+    cont.hidden = !anyCp;
     if (cp) cont.textContent = `이어하기 · 제${cp.tier}단계`;
+    if (cp4) cont.textContent = `이어하기 · 리허설 ${DANCE_ORDER.filter((id) => cp4.done[id]).length} / 3`;
   },
   pause() {
     if (G.mode !== 'play' && G.mode !== 'cutscene') return;
     this.prevMode = G.mode; G.mode = 'paused';
     if (G.chapter === 3) Snow.onPause(true);
-    UI.setHelp(G.chapter === 3 ? Snow.helpText() : '');
+    if (G.chapter === 4) Sweet.onPause(true);
+    UI.setHelp(G.chapter === 3 ? Snow.helpText() : G.chapter === 4 ? Sweet.helpText() : '');
     this.syncToggles(); UI.show('screenPause');
   },
   resume() {
     if (G.mode !== 'paused') return;
     UI.hide('screenPause'); G.mode = this.prevMode || 'play';
     if (G.chapter === 3) Snow.onPause(false);
+    if (G.chapter === 4) Sweet.onPause(false);
   },
   togglePause() { if (G.mode === 'paused') this.resume(); else this.pause(); },
 
   /* ---------- chapter flow ---------- */
   startChapter() {
     RUN_ID++; Tasks.clear(); UI.closeDialog();
-    ['screenTitle', 'screenMap', 'screenClear', 'screenPause'].forEach((id) => UI.hide(id));
-    Toy.leave(); Snow.leave(); World.use(1);
+    ['screenTitle', 'screenMap', 'screenClear', 'screenPause', 'screenRehearse'].forEach((id) => UI.hide(id));
+    Toy.leave(); Snow.leave(); Sweet.leave(); World.use(1);
     UI.setChapterHud('제1장', '크리스마스 저택', 'i-star');
     this.resetWorld();
     G.mode = 'cutscene'; G.locked = true;
@@ -550,6 +572,7 @@ const Story = {
   /* ---------- per-frame story logic ---------- */
   tick(dt) {
     if (G.chapter === 3) return;
+    if (G.chapter === 4) { Sweet.tick(dt); return; }
     if (G.chapter === 2) { Toy.tick(dt); return; }
     const t = FX.uniforms.uTime.value;
     if (fairyBig.root.visible) { fairyBig.root.position.y = 1.1 + Math.sin(t * 1.6) * 0.12; if (Math.random() < dt * 14) FX.add.spawn({ x: rnd(-0.7, 0.7), y: rnd(1, 3), z: -1.25 + rnd(-0.4, 0.4), vy: 0.4, life: 1, size: 0.25, size1: 0, color: pick(['#ffd6e0', '#cfe3ff', '#fff1c4']), cell: CELL.sparkle, rot: rnd(0, 3) }); }

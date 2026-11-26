@@ -48,6 +48,11 @@
   <!-- the snowflakes' waltz (chapter III finale) -->
   <button id="danceSkip" class="skip-btn" type="button" hidden>공연 건너뛰기 <span aria-hidden="true">›</span></button>
 
+  <!-- dance rehearsals (chapter IV) -->
+  <div id="recital" hidden>
+    <div class="rc-field" id="rcField"><canvas id="rcCv" aria-label="리허설 무대"></canvas></div>
+  </div>
+
   <!-- touch controls -->
   <div id="controls" hidden>
     <div id="stickZone"><div id="stickBase"><div id="stickKnob"></div></div></div>
@@ -146,6 +151,21 @@
         <button class="btn primary" id="btnClearNext">제2장으로 떠나기</button>
         <button class="btn" id="btnClearMap">챕터 지도 보기</button>
         <button class="btn" id="btnClearReplay">다시 하기</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- the result of one rehearsal (chapter IV) -->
+  <section id="screenRehearse" class="screen dim scroll-ok" hidden>
+    <div class="card small">
+      <div class="card-kicker" id="rcKicker">스페인 춤 · 초콜릿</div>
+      <h2 id="rcTitle">리허설 성공!</h2>
+      <div class="seal"><svg aria-hidden="true"><use href="#i-music"/></svg></div>
+      <dl class="stats" id="rcStats"></dl>
+      <p class="rc-info" id="rcInfo"></p>
+      <div class="card-btns">
+        <button class="btn primary" id="btnRcMain">계속</button>
+        <button class="btn" id="btnRcSub">광장으로</button>
       </div>
     </div>
   </section>

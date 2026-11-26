@@ -84,8 +84,8 @@ const { open } = require('./harness.cjs');
   /* 4. the chapter map afterwards */
   await ev(() => { document.getElementById('btnClearMap').click(); });
   await page.waitForTimeout(1000);
-  const m4 = await ev(() => ({ sel: window.__nut.Story.mapSel, title: document.getElementById('mapTitle').textContent, lock: document.getElementById('mapLockText').textContent, btn: document.getElementById('btnPlayChapter').textContent, toc: [...document.querySelectorAll('.toc-state')].map((e) => e.textContent) }));
-  ok('map: chapter IV is unlocked but still being prepared', m4.title === '과자의 왕국' && /정성껏 꾸미는 중/.test(m4.lock) && m4.btn === '곧 공개돼요', m4);
+  const m4 = await ev(() => ({ sel: window.__nut.Story.mapSel, title: document.getElementById('mapTitle').textContent, veil: !document.getElementById('mapLock').hidden, lock: document.getElementById('mapLockText').textContent, btn: document.getElementById('btnPlayChapter').textContent, toc: [...document.querySelectorAll('.toc-state')].map((e) => e.textContent) }));
+  ok('map: chapter IV is unlocked and ready to play', m4.title === '과자의 왕국' && m4.veil === false && m4.btn === '이야기 펼치기', m4);
   await ev(() => { const n = window.__nut; n.Story.mapSel = 2; n.Story.renderMap(); });
   const m5 = await ev(() => ({ stats: document.getElementById('mapStats').textContent, img: !document.getElementById('mapImg').hidden, btn: document.getElementById('btnPlayChapter').textContent }));
   ok('map: chapter III shows the saved result and a picture of the open path', /열린 숲길 \d+%/.test(m5.stats) && m5.img && m5.btn === '다시 펼치기', m5);

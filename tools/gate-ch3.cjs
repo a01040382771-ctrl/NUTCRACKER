@@ -56,10 +56,10 @@ const { open } = require('./harness.cjs');
   await until(() => window.__nut.G.mode === 'clear', 300000, 'the second try ends on the clear card');
   const p2 = await ev(() => {
     const n = window.__nut, S = n.Snow, q = (id) => document.getElementById(id);
-    return { gate: S.W.gate.open, caught: S.caught(), need: n.SNOW_CFG.gateNeed, kicker: q('clrKicker').textContent, next: !q('btnClearNext').hidden, unlocked: n.Save.data.unlocked, saved: !!n.Save.data.done.snow, danced: window.__danceSeen };
+    return { gate: S.W.gate.open, caught: S.caught(), need: n.SNOW_CFG.gateNeed, kicker: q('clrKicker').textContent, next: !q('btnClearNext').hidden, nextLabel: q('btnClearNext').textContent, unlocked: n.Save.data.unlocked, saved: !!n.Save.data.done.snow, danced: window.__danceSeen };
   });
   await shot('gate-open');
-  ok('enough snowflakes: the dance runs, the gate opens, and the chapter is saved as finished', p2.gate === 1 && p2.caught === high.perfect + high.good && p2.caught >= p2.need && p2.danced && p2.kicker === '제3장 · 이야기 끝' && !p2.next && p2.unlocked >= 4 && p2.saved, { ...p2, expected: high.perfect + high.good });
+  ok('enough snowflakes: the dance runs, the gate opens, the chapter is saved as finished and the card leads on to chapter IV', p2.gate === 1 && p2.caught === high.perfect + high.good && p2.caught >= p2.need && p2.danced && p2.kicker === '제3장 · 이야기 끝' && p2.next && p2.nextLabel === '제4장으로 떠나기' && p2.unlocked >= 4 && p2.saved, { ...p2, expected: high.perfect + high.good });
 
   console.log(fails ? `FAILED ${fails}` : 'ALL PASSED');
   await h.finish();
