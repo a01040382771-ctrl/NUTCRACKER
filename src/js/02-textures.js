@@ -429,6 +429,39 @@ function nutFaceTex(open) {
   return toTex(cv);
 }
 
+/* ---- the Nutcracker's white hair: one strip that runs round the back of his head, from one temple (u = 0) to the other (u = 1) ----
+   Its two end columns are the face texture's edge columns (skin, with the same white hair line across the top), so the seam
+   between the painted face and the hair does not show; the hair itself starts a little behind the temple. */
+function nutHairTex() {
+  const W = 512, H = 256, cv = makeCanvas(W, H), c = cv.getContext('2d');
+  const img = c.createImageData(W, H), D = img.data;
+  const skin = [246, 211, 182], hair = [244, 240, 234], shade = [206, 190, 172];
+  const band = Math.round(H * 70 / 512);                       // the hair line of the face texture: its top 70 of 512 rows
+  for (let y = 0; y < H; y++) {
+    const low = y / H;                                          // 0 at the crown, 1 at the nape
+    const edge = 0.095 + 0.04 * low;                            // where the hair starts behind the temple: a little further back lower down
+    const nape = smoothstep(0.55, 1, low) * 0.3;                // the hair is a touch creamier towards the neck
+    for (let x = 0; x < W; x++) {
+      const s = x / (W - 1), m = y < band ? 1 : smoothstep(edge, edge + 0.03, Math.min(s, 1 - s));
+      const i = (y * W + x) * 4, k2 = nape * m;
+      for (let k = 0; k < 3; k++) D[i + k] = (skin[k] + (hair[k] - skin[k]) * m) * (1 - k2) + shade[k] * k2;
+      D[i + 3] = 255;
+    }
+  }
+  c.putImageData(img, 0, 0);
+  // combed strands from the crown down to the nape, kept well behind the temple so none of them runs over skin
+  let seed = 11; const r = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  c.lineCap = 'round';
+  for (let n = 0; n < 150; n++) {
+    const x0 = W * (0.2 + 0.6 * r()), ph = r() * TAU, amp = 2 + 5 * r(), fq = 0.018 + 0.02 * r();
+    c.strokeStyle = n % 3 ? 'rgba(206,194,182,0.22)' : 'rgba(255,255,255,0.32)'; c.lineWidth = 1 + 1.6 * r();
+    c.beginPath();
+    for (let y = -4; y <= H + 4; y += 6) { const x = x0 + Math.sin(y * fq + ph) * amp; if (y < 0) c.moveTo(x, y); else c.lineTo(x, y); }
+    c.stroke();
+  }
+  return toTex(cv);
+}
+
 /* ---- gift wrapping papers atlas (4x4) ---- */
 const GIFT_CELLS = 4;
 function giftAtlasTex() {
@@ -678,6 +711,7 @@ function buildTextures() {
   TEX.faceFairy = { smile: faceTex('fairy', 'smile'), blink: faceTex('fairy', 'blink') };
   TEX.facePrince = { smile: faceTex('prince', 'smile'), blink: faceTex('prince', 'blink'), happy: faceTex('prince', 'happy') };
   TEX.nutFace = nutFaceTex(false);
+  TEX.nutHair = nutHairTex();
   TEX.gifts = giftAtlasTex();
   TEX.blocks = blockAtlasTex();
   TEX.clock = clockFaceTex();

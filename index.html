@@ -1092,6 +1092,39 @@ function nutFaceTex(open) {
   return toTex(cv);
 }
 
+/* ---- the Nutcracker's white hair: one strip that runs round the back of his head, from one temple (u = 0) to the other (u = 1) ----
+   Its two end columns are the face texture's edge columns (skin, with the same white hair line across the top), so the seam
+   between the painted face and the hair does not show; the hair itself starts a little behind the temple. */
+function nutHairTex() {
+  const W = 512, H = 256, cv = makeCanvas(W, H), c = cv.getContext('2d');
+  const img = c.createImageData(W, H), D = img.data;
+  const skin = [246, 211, 182], hair = [244, 240, 234], shade = [206, 190, 172];
+  const band = Math.round(H * 70 / 512);                       // the hair line of the face texture: its top 70 of 512 rows
+  for (let y = 0; y < H; y++) {
+    const low = y / H;                                          // 0 at the crown, 1 at the nape
+    const edge = 0.095 + 0.04 * low;                            // where the hair starts behind the temple: a little further back lower down
+    const nape = smoothstep(0.55, 1, low) * 0.3;                // the hair is a touch creamier towards the neck
+    for (let x = 0; x < W; x++) {
+      const s = x / (W - 1), m = y < band ? 1 : smoothstep(edge, edge + 0.03, Math.min(s, 1 - s));
+      const i = (y * W + x) * 4, k2 = nape * m;
+      for (let k = 0; k < 3; k++) D[i + k] = (skin[k] + (hair[k] - skin[k]) * m) * (1 - k2) + shade[k] * k2;
+      D[i + 3] = 255;
+    }
+  }
+  c.putImageData(img, 0, 0);
+  // combed strands from the crown down to the nape, kept well behind the temple so none of them runs over skin
+  let seed = 11; const r = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  c.lineCap = 'round';
+  for (let n = 0; n < 150; n++) {
+    const x0 = W * (0.2 + 0.6 * r()), ph = r() * TAU, amp = 2 + 5 * r(), fq = 0.018 + 0.02 * r();
+    c.strokeStyle = n % 3 ? 'rgba(206,194,182,0.22)' : 'rgba(255,255,255,0.32)'; c.lineWidth = 1 + 1.6 * r();
+    c.beginPath();
+    for (let y = -4; y <= H + 4; y += 6) { const x = x0 + Math.sin(y * fq + ph) * amp; if (y < 0) c.moveTo(x, y); else c.lineTo(x, y); }
+    c.stroke();
+  }
+  return toTex(cv);
+}
+
 /* ---- gift wrapping papers atlas (4x4) ---- */
 const GIFT_CELLS = 4;
 function giftAtlasTex() {
@@ -1341,6 +1374,7 @@ function buildTextures() {
   TEX.faceFairy = { smile: faceTex('fairy', 'smile'), blink: faceTex('fairy', 'blink') };
   TEX.facePrince = { smile: faceTex('prince', 'smile'), blink: faceTex('prince', 'blink'), happy: faceTex('prince', 'happy') };
   TEX.nutFace = nutFaceTex(false);
+  TEX.nutHair = nutHairTex();
   TEX.gifts = giftAtlasTex();
   TEX.blocks = blockAtlasTex();
   TEX.clock = clockFaceTex();
@@ -1539,6 +1573,43 @@ function planarFaceUV(geo, rx, ry, cy = 0, spread = 0.46) {
   }
   U.needsUpdate = true;
   return geo;
+}
+/* A head with the painted face on its front half and hair round the back (for the Nutcracker's box-shaped head).
+   planarFaceUV sends the far side of a head to the texture's rim by direction. A sphere under hair never shows it, but the
+   flat back of a box has no single "outward" direction, so neighbouring vertices land on opposite sides of the rim and the
+   triangles between them pull the middle of the texture across the back: a small second face (eyes, brows, cheeks).
+   So the mesh is cut at z = 0 into two sets of vertices (the vertices along the cut are duplicated, so the seam can carry
+   two UVs) and two triangle groups, one per material:
+   group 0, the front half, is projected straight on, exactly like planarFaceUV (face texture);
+   group 1, the back half, takes u from the angle round the head, 0 at the +x seam (the Nutcracker's left side), 0.5 straight
+   behind, 1 at the -x seam (his right side), and v from the same height as the face, so a hair texture's end columns can match the face texture's edge.
+   Returns a new geometry and leaves the source (usually cached) alone. */
+function faceHeadGeo(src, rx, ry, cy = 0, spread = 0.46) {
+  const P = src.attributes.position, N = src.attributes.normal, I = src.index.array;
+  const pos = [], nor = [], uv = [], tri = [[], []], made = [new Map(), new Map()];   // made[side]: source vertex → new vertex
+  for (let t = 0; t < I.length; t += 3) {
+    const side = P.getZ(I[t]) + P.getZ(I[t + 1]) + P.getZ(I[t + 2]) < 0 ? 1 : 0;   // 0 = front half, 1 = back half
+    for (let k = 0; k < 3; k++) {
+      const i = I[t + k];
+      let j = made[side].get(i);
+      if (j === undefined) {
+        j = pos.length / 3; made[side].set(i, j);
+        const x = P.getX(i), y = P.getY(i), z = P.getZ(i), v = 0.5 + ((y - cy) / ry) * spread;
+        let u = 0.5 + (x / rx) * spread;
+        if (side) { let a = Math.atan2(x, z); if (a < 0) a += TAU; u = clamp((a - Math.PI / 2) / Math.PI, 0, 1); }   // a: 0 straight ahead, 90° at +x, 180° straight behind
+        pos.push(x, y, z); nor.push(N.getX(i), N.getY(i), N.getZ(i)); uv.push(u, v);
+      }
+      tri[side].push(j);
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  g.setIndex(tri[0].concat(tri[1]));
+  g.addGroup(0, tri[0].length, 0); g.addGroup(tri[0].length, tri[1].length, 1);
+  g.computeBoundingSphere();
+  return g;
 }
 /* velvet drape: plane with vertical folds, optional tie-back pinch */
 function drapeGeo(w, h, folds, depth, opts = {}) {
@@ -2421,10 +2492,10 @@ function buildNutcracker() {
   body.add(epaulettes);
   // head
   const head = new THREE.Group(); head.position.y = 0.64; body.add(head);
-  const hgeo = roundBox(0.36, 0.42, 0.34, 0.13, 4).clone();
-  planarFaceUV(hgeo, 0.18, 0.21, 0, 0.46);
+  const hgeo = faceHeadGeo(roundBox(0.36, 0.42, 0.34, 0.13, 4), 0.18, 0.21, 0, 0.46);   // group 0: the painted face in front · group 1: white hair behind
   const faceMat = new THREE.MeshStandardMaterial({ map: TEX.nutFace, roughness: 0.32 });
-  const headMesh = new THREE.Mesh(hgeo, faceMat); headMesh.position.y = 0.24; headMesh.castShadow = true;
+  const hairMat = new THREE.MeshStandardMaterial({ map: TEX.nutHair, roughness: 0.4 });
+  const headMesh = new THREE.Mesh(hgeo, [faceMat, hairMat]); headMesh.position.y = 0.24; headMesh.castShadow = true;
   head.add(headMesh);
   const hb = new Batch(MAT.gloss);
   hb.add(GEO.sph(14, 10), '#f2bfa6', TRS(0, 0.22, 0.19, 0.2, 0, 0, 0.05, 0.075, 0.07));

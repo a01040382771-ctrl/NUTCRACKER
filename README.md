@@ -236,6 +236,7 @@ node tools/play-ch2.cjs    # 제2장 전체 (조각 12개, 장치, 생쥐 보초
 VIEW=mobile node tools/play-ch2.cjs   # 휴대폰 세로 화면
 node tools/check-save.cjs  # 저장 → 새로고침 → 이어하기, 손상된 저장 무시, 클리어 시 삭제
 node tools/check-rhythm.cjs   # 차트, 판정 경계값, 놓침 처리, 오디오 시계, 일시정지, 터치·키 입력, 설정값
+node tools/check-nutback.cjs  # 호두까기 인형 머리: 얼굴은 앞쪽에만, 뒤통수는 흰 머리카락 (UV·머리카락 텍스처·이음매 색·실제 렌더 화면)
 node tools/play-ch3.cjs       # 제3장: 챕터 지도 → 리듬 → 일시정지 → 군무 → 피날레 → 결과·저장 → 다시 하기·나가기
 node tools/gate-ch3.cjs        # 문 기준: 30개 미만이면 문이 닫히고 다시 시도, 이상이면 열림
 node tools/dance-ch3.cjs      # 군무: 순서, 대형 8가지·간격, 일시정지, 소리, 건너뛰기, 성능 (LOCAL_WALTZ=파일 로 내 기기 녹음도)

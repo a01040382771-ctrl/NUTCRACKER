@@ -180,6 +180,43 @@ function planarFaceUV(geo, rx, ry, cy = 0, spread = 0.46) {
   U.needsUpdate = true;
   return geo;
 }
+/* A head with the painted face on its front half and hair round the back (for the Nutcracker's box-shaped head).
+   planarFaceUV sends the far side of a head to the texture's rim by direction. A sphere under hair never shows it, but the
+   flat back of a box has no single "outward" direction, so neighbouring vertices land on opposite sides of the rim and the
+   triangles between them pull the middle of the texture across the back: a small second face (eyes, brows, cheeks).
+   So the mesh is cut at z = 0 into two sets of vertices (the vertices along the cut are duplicated, so the seam can carry
+   two UVs) and two triangle groups, one per material:
+   group 0, the front half, is projected straight on, exactly like planarFaceUV (face texture);
+   group 1, the back half, takes u from the angle round the head, 0 at the +x seam (the Nutcracker's left side), 0.5 straight
+   behind, 1 at the -x seam (his right side), and v from the same height as the face, so a hair texture's end columns can match the face texture's edge.
+   Returns a new geometry and leaves the source (usually cached) alone. */
+function faceHeadGeo(src, rx, ry, cy = 0, spread = 0.46) {
+  const P = src.attributes.position, N = src.attributes.normal, I = src.index.array;
+  const pos = [], nor = [], uv = [], tri = [[], []], made = [new Map(), new Map()];   // made[side]: source vertex → new vertex
+  for (let t = 0; t < I.length; t += 3) {
+    const side = P.getZ(I[t]) + P.getZ(I[t + 1]) + P.getZ(I[t + 2]) < 0 ? 1 : 0;   // 0 = front half, 1 = back half
+    for (let k = 0; k < 3; k++) {
+      const i = I[t + k];
+      let j = made[side].get(i);
+      if (j === undefined) {
+        j = pos.length / 3; made[side].set(i, j);
+        const x = P.getX(i), y = P.getY(i), z = P.getZ(i), v = 0.5 + ((y - cy) / ry) * spread;
+        let u = 0.5 + (x / rx) * spread;
+        if (side) { let a = Math.atan2(x, z); if (a < 0) a += TAU; u = clamp((a - Math.PI / 2) / Math.PI, 0, 1); }   // a: 0 straight ahead, 90° at +x, 180° straight behind
+        pos.push(x, y, z); nor.push(N.getX(i), N.getY(i), N.getZ(i)); uv.push(u, v);
+      }
+      tri[side].push(j);
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  g.setIndex(tri[0].concat(tri[1]));
+  g.addGroup(0, tri[0].length, 0); g.addGroup(tri[0].length, tri[1].length, 1);
+  g.computeBoundingSphere();
+  return g;
+}
 /* velvet drape: plane with vertical folds, optional tie-back pinch */
 function drapeGeo(w, h, folds, depth, opts = {}) {
   const sx = opts.segX || Math.max(24, folds * 6), sy = opts.segY || 18;

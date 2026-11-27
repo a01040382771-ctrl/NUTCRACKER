@@ -456,10 +456,10 @@ function buildNutcracker() {
   body.add(epaulettes);
   // head
   const head = new THREE.Group(); head.position.y = 0.64; body.add(head);
-  const hgeo = roundBox(0.36, 0.42, 0.34, 0.13, 4).clone();
-  planarFaceUV(hgeo, 0.18, 0.21, 0, 0.46);
+  const hgeo = faceHeadGeo(roundBox(0.36, 0.42, 0.34, 0.13, 4), 0.18, 0.21, 0, 0.46);   // group 0: the painted face in front · group 1: white hair behind
   const faceMat = new THREE.MeshStandardMaterial({ map: TEX.nutFace, roughness: 0.32 });
-  const headMesh = new THREE.Mesh(hgeo, faceMat); headMesh.position.y = 0.24; headMesh.castShadow = true;
+  const hairMat = new THREE.MeshStandardMaterial({ map: TEX.nutHair, roughness: 0.4 });
+  const headMesh = new THREE.Mesh(hgeo, [faceMat, hairMat]); headMesh.position.y = 0.24; headMesh.castShadow = true;
   head.add(headMesh);
   const hb = new Batch(MAT.gloss);
   hb.add(GEO.sph(14, 10), '#f2bfa6', TRS(0, 0.22, 0.19, 0.2, 0, 0, 0.05, 0.075, 0.07));
