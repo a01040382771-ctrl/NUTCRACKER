@@ -145,12 +145,12 @@ const Recital = {
   /* ---------- music: the score, plus a repeating part for open-ended games (handed over 1.2 s ahead) ---------- */
   pump() {
     if (!this.running || this.paused || this.clock !== 'audio' || !this.bus) return;
-    const c = Sound.ctx, ahead = c.currentTime + 1.2;
+    const c = Sound.ctx, G0 = this.game, ahead = c.currentTime + (G0 && G0.ahead ? G0.ahead : 1.2);   // a game that adds music as it is played hands it over closer to the beat
     while (this.evIdx < this.events.length) {
       const e = this.events[this.evIdx], at = this.t0 + e.t;
       if (at > ahead) break;
       this.evIdx++;
-      if (at >= c.currentTime - 0.05) this.play(e, at);
+      if (at >= c.currentTime - 0.05 && !(G0 && G0.mute && G0.mute(e))) this.play(e, at);
     }
     const L = this.loop;
     if (L) {
@@ -197,6 +197,13 @@ const Recital = {
       case 'tick': Sound.noiseHit(at, 0.05, 0.08, 'highpass', e.accent ? 3000 : 5000, 1, bus); Sound.bell(at, noteFreq(e.accent ? 'A6' : 'D6'), 0.35, 0.05, bus); break;
       case 'sparkle': Sound.noiseHit(at, 0.05, 0.03, 'highpass', 7000, 0.8, bus); Sound.bell(at, noteFreq('B6'), 0.6, 0.025, bus, 1.6); break;
     }
+  },
+  /* add music that was not in the score when the game began (an act that ends when the player has finished it): it plays from now on,
+     and what has already been handed to the audio clock is not played again. The first new note must be later than the music's lead. */
+  addEvents(list) {
+    this.events.push(...list); this.events.sort((a, b) => a.t - b.t);
+    const c = Sound.ctx, G0 = this.game, ahead = c ? c.currentTime + (G0 && G0.ahead ? G0.ahead : 1.2) : -1e9;
+    this.evIdx = 0; while (this.evIdx < this.events.length && this.t0 + this.events[this.evIdx].t <= ahead) this.evIdx++;
   },
   /* the count-in ticks before the first beat (shared by every game) */
   countInEvents(n) { const ev = []; for (let i = 0; i < n; i++) ev.push({ t: -(n - i) * this.spb, kind: 'tick', accent: i === 0 }); return ev; },

@@ -6,7 +6,7 @@ const CHAPTERS = [
   { id: 'toys', no: '제2장', roman: 'II', title: '장난감 왕국', en: 'The Toy Kingdom', icon: 'i-soldier', desc: '커다래진 트리 아래, 양철 병정과 태엽 인형이 사는 장난감 왕국. 생쥐 왕이 흩뜨려 놓은 왕궁 조각 열두 개를 찾아 설계도대로 다시 조립해야 해요.' },
   { id: 'snow', no: '제3장', roman: 'III', title: '눈송이의 숲', en: 'The Snowflake Forest', icon: 'i-snow', desc: '눈꽃 요정이 길을 지키는 은빛 숲. 눈송이 왈츠에 맞춰 내려오는 눈송이를 톡톡 눌러, 눈에 파묻힌 숲길을 열어 주세요.' },
   { id: 'sweets', no: '제4장', roman: 'IV', title: '과자의 왕국', en: 'The Kingdom of Sweets', icon: 'i-candy', desc: '초콜릿 강이 흐르는 달콤한 나라에서 클라라를 위한 축제가 준비되고 있어요. 스페인 춤, 아라비아 춤, 중국 춤 무용수들의 리허설을 도와 궁전으로 가는 사탕 다리를 놓아 주세요.' },
-  { id: 'palace', no: '제5장', roman: 'V', title: '설탕 요정의 궁전', en: 'The Sugar Plum Palace', icon: 'i-crown', desc: '설탕 결정으로 지은 반짝이는 궁전. 설탕 요정이 마지막 춤으로 클라라의 꿈을 완성해 줄 거예요.' },
+  { id: 'palace', no: '제5장', roman: 'V', title: '설탕 요정의 궁전', en: 'The Sugar Plum Palace', icon: 'i-crown', desc: '하늘 위 유리 무대에서 마지막 공연 「꿈의 대공연」이 열려요. 별빛 지휘봉으로 세 나라의 무용수들을 이끌고, 설탕 요정의 솔로를 밝히고, 모두 함께 대피날레를 완성해 주세요.' },
 ];
 const Save = {
   key: 'nutcracker-clara-v1',
@@ -85,6 +85,7 @@ const Story = {
       else if (this.mapSel === 1 && chapterOpen(1)) { Sound.sfxUI(); Toy.start(); }
       else if (this.mapSel === 2 && chapterOpen(2)) { Sound.sfxUI(); Snow.start(); }
       else if (this.mapSel === 3 && chapterOpen(3)) { Sound.sfxUI(); Sweet.start(); }
+      else if (this.mapSel === 4 && chapterOpen(4)) { Sound.sfxUI(); Palace.start(); }
     });
     on('btnContinue', () => {
       if (this.mapSel === 1 && chapterOpen(1) && Toy.checkpoint()) { Sound.sfxUI(); Toy.start(true); }
@@ -106,10 +107,11 @@ const Story = {
   },
   /* the current chapter again, from its start */
   replay() {
-    if (G.chapter === 4) Sweet.start(); else if (G.chapter === 3) Snow.start(); else if (G.chapter === 2) Toy.start(); else this.startChapter();
+    if (G.chapter === 5) Palace.start(); else if (G.chapter === 4) Sweet.start(); else if (G.chapter === 3) Snow.start(); else if (G.chapter === 2) Toy.start(); else this.startChapter();
   },
   /* the "next chapter" button on a clear card: chapter I → II (resumable), II → III, III → IV (resumable); in chapter III it can also be the try-again card */
   clearNext() {
+    if (G.chapter === 4) { Palace.start(); return; }
     if (G.chapter === 3) {
       if (Snow.retryCard) { Snow.retry(); return; }
       if (Sweet.checkpoint()) { this.toTitle(); this.mapSel = 3; this.openMap(); } else Sweet.start();
@@ -194,15 +196,15 @@ const Story = {
       const li = document.createElement('li');
       const b = document.createElement('button');
       b.className = `toc-item${unlocked ? '' : ' locked'}${i === this.mapSel ? ' sel' : ''}`;
-      const state = done ? (i === 3 ? '<svg><use href="#i-candy"/></svg>3/3' : i === 2 ? `<svg><use href="#i-snow"/></svg>${done.opened}%` : i === 1 ? `<svg><use href="#i-block"/></svg>${done.pieces}/12` : `<svg><use href="#i-star"/></svg>${done.stars}/12`) : unlocked ? (i === 0 ? '별 12개' : i === 1 ? '조각 12개' : i === 2 ? '눈송이 리듬' : i === 3 ? '춤 리허설 3개' : '준비 중') : '잠김';
+      const state = done ? (i === 4 ? `<svg><use href="#i-crown"/></svg>${done.stars}/${done.max}` : i === 3 ? '<svg><use href="#i-candy"/></svg>3/3' : i === 2 ? `<svg><use href="#i-snow"/></svg>${done.opened}%` : i === 1 ? `<svg><use href="#i-block"/></svg>${done.pieces}/12` : `<svg><use href="#i-star"/></svg>${done.stars}/12`) : unlocked ? (i === 0 ? '별 12개' : i === 1 ? '조각 12개' : i === 2 ? '눈송이 리듬' : i === 3 ? '춤 리허설 3개' : '꿈의 대공연') : '잠김';
       b.innerHTML = `<span class="toc-ico"><svg><use href="#${unlocked ? ch.icon : 'i-lock'}"/></svg></span><span class="toc-no">${ch.roman}</span><span class="toc-name">${ch.title}</span><span class="toc-state">${state}</span>`;
       b.addEventListener('click', () => { this.mapSel = i; Sound.sfxUI(); this.renderMap(); });
       li.appendChild(b); toc.appendChild(li);
     });
     const sel = this.mapSel, ch = CHAPTERS[sel], unlocked = chapterOpen(sel), done = Save.data.done[ch.id];
-    const playable = unlocked && sel <= 3;
+    const playable = unlocked && sel <= 4;
     $('mapNo').textContent = `${ch.no} · Chapter ${ch.roman}`; $('mapTitle').textContent = ch.title; $('mapEn').textContent = ch.en; $('mapDesc').textContent = ch.desc;
-    const img = $('mapImg'), shot = sel === 0 ? this.roomShot : sel === 1 ? Toy.shot : sel === 2 ? Snow.shot : sel === 3 ? Sweet.shot : '';
+    const img = $('mapImg'), shot = sel === 0 ? this.roomShot : sel === 1 ? Toy.shot : sel === 2 ? Snow.shot : sel === 3 ? Sweet.shot : sel === 4 ? Palace.shot : '';
     if (shot) { img.src = shot; img.hidden = false; $('mapArtIco').hidden = true; }
     else { img.hidden = true; $('mapArtIco').hidden = false; $('mapArtUse').setAttribute('href', `#${ch.icon}`); }
     const veil = $('mapLock');
@@ -223,6 +225,7 @@ const Story = {
       if (cp4) stats = `저장된 진행 · 리허설 ${n4} / 3${done ? ` · 최고 기록 ${fmtTime(done.best || done.time)}` : ''}`;
       else stats = done ? `리허설 3 / 3 · 최고 기록 ${fmtTime(done.best || done.time)}` : '스페인 · 아라비아 · 중국 춤 리허설 3개';
     }
+    else if (sel === 4 && unlocked) stats = done ? `별 ${done.stars}/${done.max} · 최고 기록 ${fmtTime(done.best || done.time)}` : '세 막으로 이어지는 꿈의 대공연 · 약 4분';
     $('mapStats').textContent = stats;
     const btn = $('btnPlayChapter'), cont = $('btnContinue'), anyCp = cp || cp4;
     btn.disabled = !playable;

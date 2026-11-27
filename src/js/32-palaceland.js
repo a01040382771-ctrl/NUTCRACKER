@@ -82,6 +82,19 @@ function buildPalaceStage(root) {
   root.add(cores, pillars, isle.build({ cast: false }));
   W.pillars = pillars; W.cores = cores;
   W.tipGlow = makeGlowPoints(tips, { boost: 0.85 }); root.add(W.tipGlow);
+  /* each pillar has a lit level (1 = as usual, 0 = dark, above 1 = blazing); act II lights them one by one */
+  W.pillarBase = Array.from({ length: np }, () => new THREE.Color()); W.pillarK = new Float32Array(np).fill(1); W.pillarsDirty = false;
+  W.applyPillars = () => {
+    const tc = W.tipGlow.geometry.attributes.aColor;
+    for (let i = 0; i < np; i++) {
+      const k = W.pillarK[i];
+      _p5c.copy(W.pillarBase[i]).multiplyScalar(0.4 + 0.6 * Math.min(1, k) + 0.35 * Math.max(0, k - 1)); pillars.setColorAt(i, _p5c);
+      _p5c.copy(W.pillarBase[i]).lerp(_p5c2.set('#ffffff'), 0.45).multiplyScalar(0.08 + 0.92 * Math.min(1, k) + 0.6 * Math.max(0, k - 1)); tc.setXYZ(i, _p5c.r, _p5c.g, _p5c.b);
+    }
+    pillars.instanceColor.needsUpdate = true; tc.needsUpdate = true;
+  };
+  W.setPillar = (i, k) => { W.pillarK[i] = k; W.pillarsDirty = true; };
+  W.setAllPillars = (k) => { W.pillarK.fill(k); W.pillarsDirty = true; };
 
   /* ---------------- the Sugar Plum Palace on a bank of cloud behind the stage ---------------- */
   {
@@ -157,8 +170,8 @@ function buildPalaceStage(root) {
     W.ribbons.forEach((r, i) => mix(r.m.material.color, A.aurora[i % 3], B.aurora[i % 3]));
     W.rings.forEach((m) => mix(m.material.color, A.ring, B.ring)); mix(W.ripple.m.material.color, A.ring, B.ring);
     W.beamList.forEach((bm) => mix(bm.m.material.color, A.beam, B.beam));
-    for (let i = 0; i < np; i++) { mix(_p5c, A.pillar[i % 3], B.pillar[i % 3]); pillars.setColorAt(i, _p5c); }
-    pillars.instanceColor.needsUpdate = true;
+    for (let i = 0; i < np; i++) mix(W.pillarBase[i], A.pillar[i % 3], B.pillar[i % 3]);
+    W.applyPillars();
     mix(MAT5.crystal.emissive, A.pillar[1], B.pillar[1]); mix(MAT5.core.color, A.ring, B.ring);
   };
 
@@ -187,6 +200,20 @@ function buildPalaceStage(root) {
       bm.m.material.opacity = i === 0 ? 0.05 + 0.03 * pulse : 0.03 + 0.03 * pulse;
     });
     W.halo.rotation.y = t * 0.12;
+    if (W.pillarsDirty) { W.applyPillars(); W.pillarsDirty = false; }
+    if (W.starGroup.visible) {   // act III: the dots of the star, dim until the line has passed, then gold; the tips' columns
+      const dots = W.starDots;
+      for (let i = 0; i < W.star.n; i++) { const k = W.starLevel[i]; _p5c.set('#8a6ab0').lerp(_p5c2.set('#ffe38a'), Math.min(1, k)).multiplyScalar(1 + 0.3 * k * Math.sin(t * 5 + i * 0.6)); dots.setColorAt(i, _p5c); }
+      dots.instanceColor.needsUpdate = true;
+      W.starCols.forEach((c, k) => { c.material.opacity = 0.26 * W.starTips[k] * (0.75 + 0.25 * Math.sin(t * 3 + k)); });
+    }
+    if (W.spotGroup.visible) for (const sp of W.spots) {   // act II: the spots on the glass, awake, charging, lit
+      const pl = 0.8 + 0.2 * Math.sin(t * 4 + sp.ph);
+      sp.ring.material.opacity = 0.16 + 0.6 * sp.aw * pl + 0.24 * sp.lit; sp.dark.material.opacity = 0.04 + 0.2 * sp.aw;
+      sp.fill.scale.setScalar(0.04 + 0.96 * Math.max(sp.ch, sp.lit)); sp.fill.material.opacity = 0.12 + 0.36 * sp.ch + 0.3 * sp.lit * pl;
+      sp.col.material.opacity = 0.22 * sp.lit * (0.7 + 0.3 * pl);
+      sp.star.material.uniforms.uBoost.value = 0.2 + 0.4 * sp.aw + 0.6 * sp.lit + 0.5 * sp.ch;
+    }
     for (const id in W.pads) {
       const P = W.pads[id], pl = 0.78 + 0.22 * Math.sin(t * 3.2 + P.ph), k = P.glow * pl;
       P.disc.material.opacity = Math.min(0.62, 0.3 * k); P.rim.material.opacity = Math.min(1, 0.6 + 0.3 * k); P.ring.material.opacity = Math.min(1, 0.5 * k);
@@ -212,6 +239,41 @@ function buildPalaceStage(root) {
       W.pads[id] = { g, disc, rim, ring, col, star, glow: 0.6, ph: k * 2.1 };
     });
     W.setPadGlow = (id, k) => { W.pads[id].glow = k; };
+  }
+
+  /* ---------------- act II: twelve spots on the glass, one under each pillar, that wake, charge and light ---------------- */
+  {
+    const A2 = PALACE_CFG.act2.spots, bt2 = beamTex(); W.spots = []; W.spotGroup = new THREE.Group(); W.spotGroup.visible = false; stage.add(W.spotGroup);
+    const add = (color, opacity) => new THREE.MeshBasicMaterial({ color, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
+    const solid = (color, op) => new THREE.MeshBasicMaterial({ color, transparent: true, opacity: op, depthWrite: false, toneMapped: false });
+    for (let i = 0; i < A2.n; i++) {
+      const a = (i / A2.n) * TAU + TAU / (A2.n * 2), x = Math.cos(a) * A2.ring, z = Math.sin(a) * A2.ring;
+      const col = new THREE.Color().setHSL((0.9 + i * 0.075) % 1, 0.85, 0.64);   // pink, violet, blue, teal, green, gold, rose: round the ring
+      const g = new THREE.Group(); g.position.set(x, 0.04, z);
+      const dark = new THREE.Mesh(new THREE.CircleGeometry(A2.r, 48).rotateX(-Math.PI / 2), solid('#3b1252', 0.2));   // a plum plate: light shapes vanish on the pale glass
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(A2.r, 0.09, 6, 80), solid(col, 0.9)); ring.rotation.x = Math.PI / 2;
+      const fill = new THREE.Mesh(new THREE.CircleGeometry(A2.r * 0.96, 48).rotateX(-Math.PI / 2), solid(col, 0.3)); fill.position.y = 0.012; fill.scale.setScalar(0.05);   // a solid tint: an additive fill turns the pale glass white
+      const colm = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.36, 14, 24, 1, true).translate(0, 7, 0), new THREE.MeshBasicMaterial({ map: bt2, color: col, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false }));
+      const star = makeGlowPoints([{ p: [0, 1.4, 0], c: col, s: 3.2, tw: 0.3, ph: i * 0.41 }], { cell: CELL.star, boost: 0.3 });
+      g.add(dark, ring, fill, colm, star); W.spotGroup.add(g);
+      W.spots.push({ g, dark, ring, fill, col: colm, star, x, z, color: col, aw: 0, ch: 0, lit: 0, ph: i * 0.9 });
+    }
+  }
+
+  /* ---------------- act III: a big star on the glass, drawn in dots, with a column of light at each tip ---------------- */
+  {
+    const St = palaceStarGeom(), bt3 = beamTex();
+    W.starGroup = new THREE.Group(); W.starGroup.visible = false; stage.add(W.starGroup);
+    W.star = St; W.starLevel = new Float32Array(St.n); W.starTips = new Float32Array(5);
+    const dots = new THREE.InstancedMesh(new THREE.CircleGeometry(0.19, 14).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.95, depthWrite: false, toneMapped: false }), St.n);
+    const pt = [0, 0];
+    for (let i = 0; i < St.n; i++) { St.at((i * St.per) / St.n, pt); _p5m.compose(_p5v.set(pt[0], 0.055, pt[1]), _p5q.identity(), _p5s.set(1, 1, 1)); dots.setMatrixAt(i, _p5m); dots.setColorAt(i, _p5c.set('#8a6ab0')); }
+    dots.frustumCulled = false; dots.renderOrder = 3; W.starGroup.add(dots); W.starDots = dots;
+    W.starCols = [];
+    for (let k = 0; k < 5; k++) {
+      const [x, z] = St.verts[k * 2], col = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 16, 24, 1, true).translate(0, 8, 0), new THREE.MeshBasicMaterial({ map: bt3, color: '#ffe08a', transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false }));
+      col.position.set(x, 0.04, z); W.starGroup.add(col); W.starCols.push(col);
+    }
   }
 
   W.setPalette(0, 0, 0);

@@ -8,11 +8,11 @@ const { open } = require('./harness.cjs');
   const ok = (name, cond, extra) => { if (!cond) fails++; console.log(cond ? 'PASS' : 'FAIL', name, extra === undefined ? '' : JSON.stringify(extra)); };
   const key = (k, code) => ev(([k, code]) => { window.dispatchEvent(new KeyboardEvent('keydown', { key: k, code, bubbles: true })); window.dispatchEvent(new KeyboardEvent('keyup', { key: k, code, bubbles: true })); }, [k, code]);
 
-  /* 1. the chapter map: chapter IV is listed, unlocked and playable; chapter V is listed as being prepared */
+  /* 1. the chapter map: chapter IV is listed, unlocked and playable; chapter V (the dream gala) is open as well */
   await ev(() => { const n = window.__nut; n.Save.data.unlocked = 4; delete n.Save.data.ch4; n.Story.mapSel = 3; n.Story.openMap(); });
   await page.waitForTimeout(700);
   const map = await ev(() => ({ title: document.getElementById('mapTitle').textContent, stats: document.getElementById('mapStats').textContent, btn: document.getElementById('btnPlayChapter').textContent, disabled: document.getElementById('btnPlayChapter').disabled, veil: !document.getElementById('mapLock').hidden, toc: [...document.querySelectorAll('.toc-state')].map((e) => e.textContent) }));
-  ok('map: chapter IV is playable and lists its three rehearsals', map.title === '과자의 왕국' && !map.disabled && !map.veil && map.btn === '이야기 펼치기' && /리허설 3개/.test(map.stats) && map.toc[3] === '춤 리허설 3개' && map.toc[4] === '준비 중', map);
+  ok('map: chapter IV is playable and lists its three rehearsals', map.title === '과자의 왕국' && !map.disabled && !map.veil && map.btn === '이야기 펼치기' && /리허설 3개/.test(map.stats) && map.toc[3] === '춤 리허설 3개' && map.toc[4] === '꿈의 대공연', map);
   await shot('map');
 
   /* 2. the intro, then walking in the avenue */
@@ -101,10 +101,10 @@ const { open } = require('./harness.cjs');
   await page.waitForTimeout(1000);
   const fin = await ev(() => {
     const n = window.__nut, W = n.Sweet.W, q = (id) => document.getElementById(id);
-    return { bridge: W.bridge.k, palace: n.MAT4.palace.emissiveIntensity, kicker: q('clrKicker').textContent, stats: [...document.querySelectorAll('#clrStats div')].map((d) => [d.children[0].textContent, d.children[1].textContent]), next: !q('btnClearNext').hidden, unlock: q('clrUnlock').textContent, saved: n.Save.data.done.sweets, unlocked: n.Save.data.unlocked, cp: n.Save.data.ch4 || null, shot: n.Sweet.shot.length, raw: JSON.parse(localStorage.getItem('nutcracker-clara-v1')).done.sweets };
+    return { bridge: W.bridge.k, palace: n.MAT4.palace.emissiveIntensity, kicker: q('clrKicker').textContent, stats: [...document.querySelectorAll('#clrStats div')].map((d) => [d.children[0].textContent, d.children[1].textContent]), next: !q('btnClearNext').hidden, nextLabel: q('btnClearNext').textContent, unlock: q('clrUnlock').textContent, saved: n.Save.data.done.sweets, unlocked: n.Save.data.unlocked, cp: n.Save.data.ch4 || null, shot: n.Sweet.shot.length, raw: JSON.parse(localStorage.getItem('nutcracker-clara-v1')).done.sweets };
   });
   ok('finale: the candy bridge stands over the chocolate river and the palace is lit', fin.bridge === 1 && fin.palace > 0.3, { bridge: fin.bridge, palace: fin.palace });
-  ok('clear card: one box per rehearsal, chapter V named as next', fin.kicker === '제4장 · 이야기 끝' && fin.stats[0][0] === '캐스터네츠' && fin.stats[0][1] === `${expect.ok} / 6` && fin.stats[1][1] === '83%' && fin.stats[2][1] === '8 / 8' && !fin.next && /제5장 · 설탕 요정의 궁전/.test(fin.unlock), fin.stats);
+  ok('clear card: one box per rehearsal, and a button that goes on to chapter V', fin.kicker === '제4장 · 이야기 끝' && fin.stats[0][0] === '캐스터네츠' && fin.stats[0][1] === `${expect.ok} / 6` && fin.stats[1][1] === '83%' && fin.stats[2][1] === '8 / 8' && fin.next && /제5장 · 설탕 요정의 궁전/.test(fin.unlock) && fin.nextLabel === '제5장으로 떠나기', fin.stats);
   ok('save: the chapter is stored as finished, chapter V unlocked and the checkpoint cleared', fin.saved && fin.saved.choco.ok === expect.ok && fin.saved.coffee.pct === 83 && fin.saved.tea.cups === 8 && fin.unlocked >= 5 && fin.cp === null && JSON.stringify(fin.raw) === JSON.stringify(fin.saved) && fin.shot > 1000, { saved: fin.saved, unlocked: fin.unlocked });
   await shot('clear');
 
@@ -112,7 +112,7 @@ const { open } = require('./harness.cjs');
   await ev(() => { document.getElementById('btnClearMap').click(); });
   await page.waitForTimeout(900);
   const m5 = await ev(() => ({ title: document.getElementById('mapTitle').textContent, lock: document.getElementById('mapLockText').textContent, btn: document.getElementById('btnPlayChapter').textContent, toc: [...document.querySelectorAll('.toc-state')].map((e) => e.textContent) }));
-  ok('map: chapter V is unlocked but still being prepared, chapter IV shows 3/3', m5.title === '설탕 요정의 궁전' && /정성껏 꾸미는 중/.test(m5.lock) && m5.btn === '곧 공개돼요' && m5.toc[3] === '3/3', m5);
+  ok('map: chapter V is open to play, chapter IV shows 3/3', m5.title === '설탕 요정의 궁전' && m5.btn === '이야기 펼치기' && m5.toc[3] === '3/3' && m5.toc[4] === '꿈의 대공연', m5);
   await ev(() => { const n = window.__nut; n.Story.mapSel = 3; n.Story.renderMap(); });
   const m4 = await ev(() => ({ stats: document.getElementById('mapStats').textContent, img: !document.getElementById('mapImg').hidden, btn: document.getElementById('btnPlayChapter').textContent, cont: !document.getElementById('btnContinue').hidden }));
   ok('map: chapter IV shows its result and a picture of the kingdom', /리허설 3 \/ 3/.test(m4.stats) && m4.img && m4.btn === '다시 펼치기' && !m4.cont, m4);

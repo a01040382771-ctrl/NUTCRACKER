@@ -14,12 +14,14 @@ function buildDoll(kind, opts = {}) {
     snowfairy: { dress: '#bcd8f4', dress2: '#e8f2fd', trim: '#ffffff', sash: '#8db5e6', hair: '#cdd9ee', hair2: '#f1f6fd', legs: '#e8f0fa', shoe: '#b6cde9', hip: 0.6, legLen: 0.41, face: TEX.faceFairy, bodice: '#9cc0ea', accent: '#a9cdf2', gem: '#ffffff', metal: '#dbe6f5', metal2: '#f1f7ff', crown: '#8fd2ff' },
     /* the snowflakes of the corps de ballet: white tutus with silver and ice-blue, a softer cousin of the snow fairy */
     snowflake: { dress: '#ffffff', dress2: '#eef5ff', trim: '#ffffff', sash: '#c3d8f2', hair: '#e2dccf', hair2: '#f6f2ea', legs: '#f2f5fb', shoe: '#d9e5f5', hip: 0.6, legLen: 0.41, face: TEX.faceFairy, bodice: '#e4eefa', accent: '#b9d4f1', gem: '#ffffff', metal: '#e3ebf6', metal2: '#ffffff', crown: '#cfe8ff' },
+    /* the Sugar Plum Fairy of the dream gala (chapter V): a lilac and plum tutu with a golden crown, wings and a star wand */
+    sugar: { dress: '#e8a0d8', dress2: '#fbe0f4', trim: '#fff6fb', sash: '#c0408f', hair: '#9a62c4', hair2: '#c79cea', legs: '#f8e3ef', shoe: '#e8a0d8', hip: 0.6, legLen: 0.41, face: TEX.faceFairy, bodice: '#8f2c82', accent: '#ff7cc9', gem: '#fff3fb', metal: '#f4d27a', metal2: '#fff1c2', crown: '#ffd870' },
     /* the three dancers of the Kingdom of Sweets (chapter IV): the fairy rig without wings or wand, each with her own costume and props */
     choco: { dancer: 'choco', dress: '#9a2236', dress2: '#c9374e', trim: '#2a1216', sash: '#e2b85e', hair: '#3a2118', hair2: '#5b3726', legs: '#f2d8d2', shoe: '#2a1418', hip: 0.6, legLen: 0.41, face: TEX.faceFairy, bodice: '#5e1626', accent: '#e8475e', gem: '#f3cf7a', metal: '#e2b85e', metal2: '#f6dd96' },
     coffee: { dancer: 'coffee', dress: '#5b2f72', dress2: '#2f8790', trim: '#f2d48a', sash: '#e9c46e', hair: '#221726', hair2: '#3d2c44', legs: '#ecd6dc', shoe: '#e9c46e', hip: 0.6, legLen: 0.41, face: TEX.faceFairy, bodice: '#3e2054', accent: '#53b9b4', gem: '#f2d48a', metal: '#e9c46e', metal2: '#fff0c2' },
     tea: { dancer: 'tea', dress: '#3a957a', dress2: '#f6edd8', trim: '#d13a4c', sash: '#e0b25c', hair: '#1f1a20', hair2: '#3a3138', legs: '#f4e2e2', shoe: '#d13a4c', hip: 0.6, legLen: 0.41, face: TEX.faceFairy, bodice: '#2f7d68', accent: '#e8566e', gem: '#ffe08a', metal: '#e0b25c', metal2: '#ffe9a8' },
   }[kind];
-  const isClara = kind === 'clara', isFairy = kind === 'fairy' || kind === 'snowfairy' || kind === 'snowflake' || !!C.dancer, isPrince = kind === 'prince';
+  const isClara = kind === 'clara', isFairy = kind === 'fairy' || kind === 'snowfairy' || kind === 'snowflake' || kind === 'sugar' || !!C.dancer, isPrince = kind === 'prince';
   const root = new THREE.Group();
   const body = new THREE.Group(); body.position.y = C.hip; root.add(body);
   const skin = PAL.skin;
@@ -313,7 +315,7 @@ function updateDoll(d, dt, speed, grounded, vy) {
   if (a.walk > 0.03) a.phase += dt * (4.5 + 7.5 * a.walk);
   const s = Math.sin(a.phase);
   const W = a.walk * (1 - a.air), A = a.air;
-  const fairy = d.kind === 'fairy' || d.kind === 'snowfairy' || d.kind === 'snowflake' || !!C.dancer, prince = d.kind === 'prince';
+  const fairy = d.kind === 'fairy' || d.kind === 'snowfairy' || d.kind === 'snowflake' || d.kind === 'sugar' || !!C.dancer, prince = d.kind === 'prince';
   // rest pose
   let by = C.hip + Math.sin(a.t * 2.1) * 0.006, lean = 0, twist = 0, roll = 0;
   let lsx = -0.12, lsz = 0.2, rsx = -0.12, rsz = -0.2, lel = -0.45, rel = -0.45, llx = 0, rlx = 0, llz = 0, rlz = 0;

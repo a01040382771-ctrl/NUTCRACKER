@@ -139,6 +139,47 @@ const PalaceShow = {
     const t = (0.04 - camera.position.y) / _psD.y; if (t <= 0) return false;
     out.x = camera.position.x + _psD.x * t; out.z = camera.position.z + _psD.z * t; return true;
   },
+  /* the baton: straight to the finger, but no faster than its top speed; the arrow keys move it by hand (every act uses this) */
+  moveBaton(dt) {
+    const K = PALACE_CFG.steer, B = this.baton, KS = this.keys, px = B.x, pz = B.z;
+    const kx = (KS.right ? 1 : 0) - (KS.left ? 1 : 0), kz = (KS.down ? 1 : 0) - (KS.up ? 1 : 0);
+    if (kx || kz) { const l = Math.hypot(kx, kz); this.setTarget(B.x + (kx / l) * K.keySpeed * dt, B.z + (kz / l) * K.keySpeed * dt); B.x = B.tx; B.z = B.tz; }
+    else { const dx = B.tx - B.x, dz = B.tz - B.z, d = Math.hypot(dx, dz); if (d > 1e-4) { const s = Math.min(d, K.speed * dt); B.x += (dx / d) * s; B.z += (dz / d) * s; } }
+    B.v = dt > 0 ? Math.hypot(B.x - px, B.z - pz) / dt : 0;
+  },
+  /* the trail the line follows: a point every 0.2 units; returns how far along it the baton has come. n followers decide how much of it is kept. */
+  trailStep(n) {
+    const K = PALACE_CFG.steer, B = this.baton, last = this.trail[this.trail.length - 1], dd = Math.hypot(B.x - last.x, B.z - last.z);
+    if (dd >= 0.2) this.trail.push({ x: B.x, z: B.z, s: last.s + dd });
+    const tail = this.trail[this.trail.length - 1], sHead = tail.s + Math.hypot(B.x - tail.x, B.z - tail.z);
+    const keep = (n + 4) * K.gap + 2;
+    while (this.trail.length > 2 && sHead - this.trail[1].s > keep) this.trail.shift();
+    return sHead;
+  },
+  /* the line: each follower keeps her place a set distance back along the trail (a follower marked `free` is left alone: she is walking in by herself).
+     No one moves faster than 16 units a second, so a dancer who is far from her place runs to it instead of jumping. */
+  lineStep(dt, line, sHead) {
+    if (!line.length) return;
+    const K = PALACE_CFG.steer, B = this.baton, pts = this.trail, Ls = pts.length - 1, head = { x: B.x, z: B.z, s: sHead }, f = 1 - Math.exp(-K.follow * dt), cap = 16 * dt;
+    let j = Ls;
+    for (let k = 0; k < line.length; k++) {
+      const s = sHead - (k + 1) * K.gap;
+      while (j > 0 && pts[j].s > s) j--;
+      const d = line[k]; if (d.free) continue;
+      const a = pts[j], b = j < Ls ? pts[j + 1] : head, den = b.s - a.s, u = den > 1e-6 ? clamp((s - a.s) / den, 0, 1) : 0;
+      let mx = (a.x + (b.x - a.x) * u - d.x) * f, mz = (a.z + (b.z - a.z) * u - d.z) * f; const m = Math.hypot(mx, mz);
+      if (m > cap) { mx *= cap / m; mz *= cap / m; }
+      d.sp = dt > 0 ? Math.hypot(mx, mz) / dt : 0;
+      if (d.sp > 0.6) d.yaw = lerpAng(d.yaw, Math.atan2(mx, mz), 1 - Math.exp(-12 * dt));
+      d.x += mx; d.z += mz;
+    }
+  },
+  /* everybody on the grand ring, as at the end of act I (for the acts that follow it, and for tests that start in the middle) */
+  toRing() {
+    const K = PALACE_CFG.steer;
+    for (const d of this.D) { const a = (d.rs / this.total) * TAU; d.st = 4; d.x = Math.cos(a) * K.ringR2; d.z = Math.sin(a) * K.ringR2; d.yaw = Math.atan2(-d.x, -d.z); d.sp = 0; d.hop = -9; }
+    this.line = [];
+  },
   chime(k, vol = 0.06) {
     const R = this.R, ctx = Sound.ctx; if (!ctx || !R || !R.bus || !R.running) return;
     Sound.bell(ctx.currentTime, noteFreq(P5_WAKE[k % P5_WAKE.length]), 0.9, vol, R.bus, 1.8);
@@ -152,18 +193,9 @@ const PalaceShow = {
     this.simRel = rel;
     const sec = rel < 0 ? 0 : this.secAt(rel);
 
-    /* the baton: straight to the finger, but no faster than its top speed; the arrow keys move it by hand */
-    const px = B.x, pz = B.z; let kx = (KS.right ? 1 : 0) - (KS.left ? 1 : 0), kz = (KS.down ? 1 : 0) - (KS.up ? 1 : 0);
-    if (kx || kz) { const l = Math.hypot(kx, kz); this.setTarget(B.x + (kx / l) * K.keySpeed * dt, B.z + (kz / l) * K.keySpeed * dt); B.x = B.tx; B.z = B.tz; }
-    else { const dx = B.tx - B.x, dz = B.tz - B.z, d = Math.hypot(dx, dz); if (d > 1e-4) { const s = Math.min(d, K.speed * dt); B.x += (dx / d) * s; B.z += (dz / d) * s; } }
-    B.v = dt > 0 ? Math.hypot(B.x - px, B.z - pz) / dt : 0;
+    this.moveBaton(dt);
 
-    /* the trail the line follows: a point every 0.2 units */
-    const last = this.trail[this.trail.length - 1], dd = Math.hypot(B.x - last.x, B.z - last.z);
-    if (dd >= 0.2) this.trail.push({ x: B.x, z: B.z, s: last.s + dd });
-    const tail = this.trail[this.trail.length - 1], sHead = tail.s + Math.hypot(B.x - tail.x, B.z - tail.z);
-    const keep = (this.line.length + 4) * K.gap + 2;
-    while (this.trail.length > 2 && sHead - this.trail[1].s > keep) this.trail.shift();
+    const sHead = this.trailStep(this.line.length);
 
     /* the grand ring: everyone, wherever they are, runs to a place on it */
     if (sec === 4 && this.sec !== 4) { for (const d of D) { if (d.st === 2) { this.delivered[d.n]++; } d.st = 4; } this.line = []; }
@@ -181,20 +213,7 @@ const PalaceShow = {
       d.hop = rel; this.rung++; this.ringNote(d.rs); if (R) R.emit('ring', { d, k: this.rung });
     }
 
-    /* the line: each dancer keeps her place a set distance back along the trail */
-    if (this.line.length) {
-      const pts = this.trail, Ls = pts.length - 1, head = { x: B.x, z: B.z, s: sHead }, f = 1 - Math.exp(-K.follow * dt);
-      let j = Ls;
-      for (let k = 0; k < this.line.length; k++) {
-        const s = sHead - (k + 1) * K.gap;
-        while (j > 0 && pts[j].s > s) j--;
-        const a = pts[j], b = j < Ls ? pts[j + 1] : head, den = b.s - a.s, u = den > 1e-6 ? clamp((s - a.s) / den, 0, 1) : 0;
-        const d = this.line[k], nx = d.x + (a.x + (b.x - a.x) * u - d.x) * f, nz = d.z + (a.z + (b.z - a.z) * u - d.z) * f, mx = nx - d.x, mz = nz - d.z;
-        d.sp = dt > 0 ? Math.hypot(mx, mz) / dt : 0;
-        if (d.sp > 0.6) d.yaw = lerpAng(d.yaw, Math.atan2(mx, mz), 1 - Math.exp(-12 * dt));
-        d.x = nx; d.z = nz;
-      }
-    }
+    this.lineStep(dt, this.line, sHead);
 
     /* the pads: the baton close to a pad sends that nation's dancers in from the line, one place each round the pad */
     if (sec < 4) T.order.forEach((id, ni) => {
@@ -238,7 +257,7 @@ const PalaceShow = {
       R.emit('section', { sec });
     }
     /* the game runs on the music's clock, in steps of at most 0.05 s, so a slow frame never lets the baton skip over a sleeper */
-    const step = this.lastRel === null || rel < this.lastRel ? dt : clamp(rel - this.lastRel, 0, 0.5);
+    const step = this.lastRel === null || rel < this.lastRel ? dt : clamp(rel - this.lastRel, 0, 1);
     this.lastRel = rel;
     for (let left = step; left > 1e-6; left -= 0.05) this.sim(Math.min(left, 0.05), rel);
     if (!this.done && rel >= this.endRel) { this.done = true; this.res = this.result(); R.finish(this.res); }
@@ -248,6 +267,8 @@ const PalaceShow = {
     const acc = 0.65 * mean + 0.35 * byEnd;
     return { delivered: this.delivered.slice(), count: this.count.slice(), total: this.total, pres: this.pres.map((v) => Math.round(v * 100)), acc: Math.round(acc * 100), stars: acc >= st[1] ? 3 : acc >= st[0] ? 2 : 1, woken: this.woken, rung: this.rung };
   },
+
+  clearStats(res) { return [['세 나라 축제', '★'.repeat(res.stars) + '☆'.repeat(3 - res.stars)], ['깨운 무용수', `${res.woken}명`], ['제때 모인 정도', `${res.acc}%`]]; },
 
   /* ---------- input ---------- */
   pointer(R, type, x, y) {

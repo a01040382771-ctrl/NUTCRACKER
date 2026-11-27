@@ -304,29 +304,35 @@ function buildMansion(scene) {
 
   /* ---------------- settee, tea table, ottoman (left) ---------------- */
   {
+    const S = { gold: new Batch(MAT.gold), satin: new Batch(MAT.satin) };   // the settee is a piece of its own: the last scene of the gala carries it to the tree
     const pinkV = '#e9a7b6', pinkD = '#d98a9d';
-    B.gold.add(roundBox(1.2, 0.2, 3.2, 0.06, 2), gold, TRS(-12.15, 0.42, 2.6));
-    for (const [lx, lz] of [[-12.65, 1.1], [-11.65, 1.1], [-12.65, 4.1], [-11.65, 4.1]]) B.gold.add(lathe([[0.075, 0], [0.05, 0.08], [0.04, 0.2], [0.065, 0.3], [0.05, 0.34]], 10, 0), gold, TRS(lx, 0, lz));
-    B.satin.add(roundBox(1.15, 0.26, 3.05, 0.1, 3), pinkV, TRS(-12.12, 0.6, 2.6));
+    S.gold.add(roundBox(1.2, 0.2, 3.2, 0.06, 2), gold, TRS(-12.15, 0.42, 2.6));
+    for (const [lx, lz] of [[-12.65, 1.1], [-11.65, 1.1], [-12.65, 4.1], [-11.65, 4.1]]) S.gold.add(lathe([[0.075, 0], [0.05, 0.08], [0.04, 0.2], [0.065, 0.3], [0.05, 0.34]], 10, 0), gold, TRS(lx, 0, lz));
+    S.satin.add(roundBox(1.15, 0.26, 3.05, 0.1, 3), pinkV, TRS(-12.12, 0.6, 2.6));
     const back = new THREE.Shape(); back.moveTo(1.0, 0.65);
     for (let i = 0; i <= 24; i++) { const z = lerp(1.0, 4.2, i / 24); back.lineTo(z, 1.45 + 0.32 * Math.sin(Math.PI * (i / 24))); }
     back.lineTo(4.2, 0.65); back.closePath();
     const bgeo = new THREE.ExtrudeGeometry(back, { depth: 0.26, bevelEnabled: true, bevelThickness: 0.05, bevelSize: 0.06, bevelSegments: 3, curveSegments: 8 });
-    B.satin.add(bgeo, pinkV, TRS(-12.84, 0, 0, 0, -Math.PI / 2, 0));
+    S.satin.add(bgeo, pinkV, TRS(-12.84, 0, 0, 0, -Math.PI / 2, 0));
     const topCurve = []; for (let i = 0; i <= 24; i++) { const z = lerp(1.0, 4.2, i / 24); topCurve.push([-12.71, 1.5 + 0.32 * Math.sin(Math.PI * (i / 24)), z]); }
-    B.gold.add(tubeGeo(topCurve, 0.04, 48, 6), gold);
-    for (let r = 0; r < 2; r++) for (let i = 0; i < 6; i++) { const z = 1.45 + i * 0.46 + (r % 2) * 0.23; const y = 1.05 + r * 0.26; B.satin.add(GEO.sph(6, 4), pinkD, TRS(-12.58, y, z, 0, 0, 0, 0.035)); }
+    S.gold.add(tubeGeo(topCurve, 0.04, 48, 6), gold);
+    for (let r = 0; r < 2; r++) for (let i = 0; i < 6; i++) { const z = 1.45 + i * 0.46 + (r % 2) * 0.23; const y = 1.05 + r * 0.26; S.satin.add(GEO.sph(6, 4), pinkD, TRS(-12.58, y, z, 0, 0, 0, 0.035)); }
     for (const z of [1.0, 4.2]) {
-      B.satin.add(GEO.cyl(16), pinkV, TRS(-12.15, 1.0, z, 0, 0, Math.PI / 2, 0.17, 1.15, 0.17));
-      B.satin.add(roundBox(1.1, 0.4, 0.2, 0.06, 2), pinkV, TRS(-12.15, 0.78, z));
-      B.gold.add(GEO.torus(0.13, 0.03, 6, 18), gold, TRS(-11.57, 1.0, z, 0, Math.PI / 2, 0));
+      S.satin.add(GEO.cyl(16), pinkV, TRS(-12.15, 1.0, z, 0, 0, Math.PI / 2, 0.17, 1.15, 0.17));
+      S.satin.add(roundBox(1.1, 0.4, 0.2, 0.06, 2), pinkV, TRS(-12.15, 0.78, z));
+      S.gold.add(GEO.torus(0.13, 0.03, 6, 18), gold, TRS(-11.57, 1.0, z, 0, Math.PI / 2, 0));
     }
-    B.satin.add(roundBox(0.18, 0.55, 0.55, 0.14, 3), '#8a2140', TRS(-12.42, 1.02, 1.75, 0, 0, -0.25));
-    B.satin.add(roundBox(0.18, 0.5, 0.5, 0.13, 3), '#a9c8ea', TRS(-12.42, 1.0, 3.45, 0, 0, -0.22));
-    for (const [y, z] of [[1.28, 1.5], [1.28, 2.0], [0.76, 1.5], [0.76, 2.0]]) B.gold.add(GEO.sph(6, 4), gold, TRS(-12.36, y, z, 0, 0, 0, 0.035));
+    S.satin.add(roundBox(0.18, 0.55, 0.55, 0.14, 3), '#8a2140', TRS(-12.42, 1.02, 1.75, 0, 0, -0.25));
+    S.satin.add(roundBox(0.18, 0.5, 0.5, 0.13, 3), '#a9c8ea', TRS(-12.42, 1.0, 3.45, 0, 0, -0.22));
+    for (const [y, z] of [[1.28, 1.5], [1.28, 2.0], [0.76, 1.5], [0.76, 2.0]]) S.gold.add(GEO.sph(6, 4), gold, TRS(-12.36, y, z, 0, 0, 0, 0.035));
     boxC(-12.86, -11.55, 1.15, 4.05, 0.72);
     boxC(-12.86, -12.5, 0.85, 4.35, 1.85, 0, false);
     boxC(-12.86, -11.55, 0.8, 1.17, 1.17); boxC(-12.86, -11.55, 4.03, 4.4, 1.17);
+    {
+      const pivot = new THREE.Group(), inner = new THREE.Group(); pivot.position.set(-12.15, 0, 2.6); inner.position.set(12.15, 0, -2.6); pivot.add(inner);
+      for (const k in S) inner.add(S[k].build({ cast: true, receive: true, name: `settee-${k}` }));
+      scene.add(pivot); W.settee = { pivot, home: pivot.position.clone() };
+    }
     // tea table with cakes
     const tx = -8.4, tz = 5.3;
     const cloth = lathe([[0, 1.02], [0.82, 1.02], [0.87, 0.99], [0.9, 0.8], [0.94, 0.62]], 40, 14);

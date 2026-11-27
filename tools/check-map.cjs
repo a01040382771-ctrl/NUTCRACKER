@@ -1,5 +1,5 @@
 // Chapter map: every chapter can be entered from a fresh save (saved progress is kept, it just no longer locks the map),
-// chapter V is listed as being prepared, the whole list fits a phone screen without scrolling, and the chapter pictures
+// chapter V (the dream gala) can be played from it, the whole list fits a phone screen without scrolling, and the chapter pictures
 // fill their frame on a phone (the renderer may be narrower than the picture).
 const { open } = require('./harness.cjs');
 (async () => {
@@ -30,7 +30,7 @@ const { open } = require('./harness.cjs');
 
   await pick(4);
   const d5 = await detail();
-  ok('chapter V is listed as being prepared and cannot be played yet', d5.title === '설탕 요정의 궁전' && d5.veil && /정성껏 꾸미는 중/.test(d5.lock) && d5.btn === '곧 공개돼요' && (await rows())[4].state === '준비 중', d5);
+  ok('chapter V can be played from the map straight away: the dream gala', d5.title === '설탕 요정의 궁전' && !d5.veil && d5.btn === '이야기 펼치기' && (await rows())[4].state === '꿈의 대공연', d5);
 
   await pick(0);
   await page.waitForTimeout(300);
@@ -51,6 +51,15 @@ const { open } = require('./harness.cjs');
   let started = false;
   for (let t = 0; t < 120 && !started; t++) { await page.waitForTimeout(1000); started = await ev(() => window.__nut.G.chapter === 4 && window.__nut.G.mode === 'cutscene'); }
   ok('chapter IV starts from the map on a fresh save', started, { chapter: await ev(() => window.__nut.G.chapter), mode: await ev(() => window.__nut.G.mode) });
+
+  /* …and so does chapter V, with the stage built the first time it opens */
+  await ev(() => { window.__nut.Story.toTitle(); });
+  await openMap(); await pick(4);
+  await ev(() => { document.getElementById('btnPlayChapter').click(); });
+  let gala = false;
+  for (let t = 0; t < 180 && !gala; t++) { await page.waitForTimeout(1000); gala = await ev(() => window.__nut.G.chapter === 5 && window.__nut.Recital.running && window.__nut.G.phase === 'show'); }
+  ok('chapter V starts from the map on a fresh save and act I is running', gala, { chapter: await ev(() => window.__nut.G.chapter), phase: await ev(() => window.__nut.G.phase) });
+  await shot('map-ch5-started');
 
   console.log(fails ? `FAILED ${fails}` : 'ALL PASSED');
   await h.finish();

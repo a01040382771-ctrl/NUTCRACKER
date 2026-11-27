@@ -3,7 +3,7 @@
 // the grand ring, the music, pause, and a whole act on autoplay.
 const { open } = require('./harness.cjs');
 (async () => {
-  const h = await open({ tag: 'show5', mobile: process.env.VIEW === 'mobile' });
+  const h = await open({ tag: process.env.VIEW === 'mobile' ? 'show5m' : 'show5', mobile: process.env.VIEW === 'mobile' });
   const { ev, shot, until, page } = h;
   let fails = 0;
   const ok = (name, cond, extra) => { if (!cond) fails++; console.log(cond ? 'PASS' : 'FAIL', name, extra === undefined ? '' : JSON.stringify(extra)); };
@@ -124,6 +124,25 @@ const { open } = require('./harness.cjs');
   ok('finale: the dancers stand in the ring, the three leaders have come to the dais, and the box says the grand dance is on', end.ringed && end.leader < 1.6 && Math.abs(end.leaderY - end.dais) < 0.1 && /대원무/.test(end.obj), end);
   await page.waitForTimeout(900);
   await shot('act1-end');
+
+  /* 5. after act I: the clear card, the save, the map with its picture, and playing it again from the map */
+  await until(() => window.__nut.G.mode === 'clear', 240000, 'clear card');
+  const clr = await ev(() => {
+    const n = window.__nut, q = (id) => document.getElementById(id);
+    return { kicker: q('clrKicker').textContent, title: q('clrTitle').textContent, stats: [...document.querySelectorAll('#clrStats div')].map((d) => [d.children[0].textContent, d.children[1].textContent]), next: !q('btnClearNext').hidden,
+      saved: n.Save.data.done.palace, shot: n.Palace.shot.length, raw: JSON.parse(localStorage.getItem('nutcracker-clara-v1')).done.palace, recital: n.Recital.running, hud: !q('hud').hidden };
+  });
+  ok("clear card: the act's stars, the dancers woken and how many were on time; the result is saved and the stage has a picture for the map", clr.kicker === '제5장 · 1막 끝' && clr.stats[0][1] === '★★★' && clr.stats[1][1] === '30명' && clr.stats[2][1] === '100%' && !clr.next && clr.saved && clr.saved.stars === 3 && clr.saved.max === 3 && JSON.stringify(clr.raw) === JSON.stringify(clr.saved) && clr.shot > 1000 && !clr.recital && !clr.hud, clr);
+  await shot('act1-clear');
+  await ev(() => { document.getElementById('btnClearMap').click(); });
+  await page.waitForTimeout(900);
+  const map = await ev(() => ({ sel: window.__nut.Story.mapSel, stats: document.getElementById('mapStats').textContent, btn: document.getElementById('btnPlayChapter').textContent, state: [...document.querySelectorAll('.toc-state')][4].textContent, img: !document.getElementById('mapImg').hidden }));
+  ok('map: chapter V is selected and shows its stars and a picture of the stage', map.sel === 4 && /별 3\/3/.test(map.stats) && map.btn === '다시 펼치기' && /3\/3/.test(map.state) && map.img, map);
+  await shot('map-ch5-done');
+  await ev(() => { document.getElementById('btnPlayChapter').click(); });
+  await until(running, 240000, 'played again');
+  const again = await ev(() => { const n = window.__nut; return { phase: n.G.phase, woken: n.PalaceShow.woken, delivered: n.PalaceShow.delivered.join(), asleep: n.PalaceShow.D.every((d) => d.st === 0), results: n.Palace.results.length }; });
+  ok('play again from the map: the gala starts over, the dancers asleep and nothing delivered', again.phase === 'show' && again.woken === 0 && again.delivered === '0,0,0' && again.asleep && again.results === 0, again);
 
   console.log(fails ? `FAILED ${fails}` : 'ALL PASSED');
   await h.finish();

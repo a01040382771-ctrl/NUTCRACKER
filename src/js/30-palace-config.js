@@ -63,4 +63,44 @@ const PALACE_CFG = {
     stars: [0.6, 0.85],              // accuracy needed for two and three stars (one star always)
     keys: { up: ['ArrowUp', 'KeyW'], down: ['ArrowDown', 'KeyS'], left: ['ArrowLeft', 'KeyA'], right: ['ArrowRight', 'KeyD'] },
   },
+  /* ---------------- act II: the Sugar Plum Fairy's solo ----------------
+     Every dancer circles the baton like a swarm of stars. Twelve spots on the glass, one under each crystal pillar, wake one by one
+     with the music; the swarm held still over an awake spot charges it, and a charged spot lights its pillar, rings its note and
+     brings another layer into the music. 22 bars of 4/4 (53 s): two to gather, seventeen to light the spots, three for the finale. */
+  act2: {
+    bars: { intro: 2, main: 17, finale: 3 },
+    spots: { n: 12, ring: 10.4, r: 2.0, first: 2, every: 1 },   // the first spot wakes at bar 2, then one every bar
+    charge: { time: 1.7, decay: 0.45, still: 3.5, movingK: 0.18 },   // seconds of stillness to light a spot; per-second loss when the swarm is away; speed counted as still; charge rate while moving
+    swarm: { rings: [{ r: 1.6, w: 1.7, lag: 15 }, { r: 2.7, w: -1.25, lag: 9 }, { r: 3.8, w: 0.9, lag: 5.5 }], stretch: 0.3, join: 1.8 },
+    layers: [3, 6, 9, 12],           // lit spots needed to bring in each added layer of the music
+    stars: [0.6, 0.85],              // share of the spots lit for two and three stars
+    notes: ['D5', 'E5', 'F#5', 'A5', 'B5', 'D6', 'E6', 'F#6', 'A6', 'B6', 'D7', 'E7'],   // the note each spot rings (D major pentatonic round the ring)
+  },
+  /* ---------------- act III: the grand finale ----------------
+     The whole company, the Sugar Plum Fairy and the three leaders at its head, follows the baton in one long line. A big star lies
+     on the glass in dots; leading the line along its outline lights the dots, and the more of the star is drawn the more of the
+     music comes in. When it is drawn the company takes its places on the star, which turns slowly round the dais while Clara and the
+     Prince dance their pas de deux under fireworks. 19 bars of 4/4 (46 s): two to gather, eleven to draw, six for the finale. */
+  act3: {
+    bars: { intro: 2, draw: 11, finale: 6 },
+    star: { outer: 10, inner: 4.3, spacing: 0.5, tol: 1.6 },   // the star: radius of its five tips and of its five inner corners, the gap between dots, how near the baton must come to light a dot
+    done: 0.95,                       // the share of the star that counts as drawn
+    layers: [0.25, 0.5, 0.75, 0.95],  // the share of the star drawn for each layer of the music
+    stars: [0.7, 0.92],
+    form: { speed: 6, spin: 0.26 },   // the company walks to its places at this speed (units a second), and the star turns round the dais (radians a second)
+  },
 };
+
+/* the star of act III: ten corners (a tip, an inner corner, a tip …) starting at the tip at the back of the stage and going clockwise as the audience sees it;
+   at(s) is the point s units along its outline */
+function palaceStarGeom() {
+  const St = PALACE_CFG.act3.star, verts = [], cum = [0];
+  for (let k = 0; k < 10; k++) { const a = -Math.PI / 2 + (k * Math.PI) / 5, r = k % 2 ? St.inner : St.outer; verts.push([Math.cos(a) * r, Math.sin(a) * r]); }
+  for (let k = 0; k < 10; k++) { const v = verts[k], w = verts[(k + 1) % 10]; cum.push(cum[k] + Math.hypot(w[0] - v[0], w[1] - v[1])); }
+  const per = cum[10];
+  const at = (s, out = [0, 0]) => {
+    s = ((s % per) + per) % per; let k = 0; while (k < 9 && cum[k + 1] <= s) k++;
+    const v = verts[k], w = verts[(k + 1) % 10], u = (s - cum[k]) / (cum[k + 1] - cum[k]); out[0] = v[0] + (w[0] - v[0]) * u; out[1] = v[1] + (w[1] - v[1]) * u; return out;
+  };
+  return { verts, cum, per, n: Math.round(per / St.spacing), at };
+}

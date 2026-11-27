@@ -501,7 +501,7 @@ const Sweet = {
     UI.clearCard({
       kicker: '제4장 · 이야기 끝', title: '과자의 왕국', icon: 'i-candy',
       stats: [['캐스터네츠', rec.choco.ok !== undefined ? `${rec.choco.ok} / ${rec.choco.total || 6}` : '성공'], ['비단 자락', rec.coffee.pct !== undefined ? `${rec.coffee.pct}%` : '성공'], ['찻잔 탑', rec.tea.cups !== undefined ? `${rec.tea.cups} / ${rec.tea.goal || 8}` : '성공']],
-      unlock: '<b>제5장 · 설탕 요정의 궁전</b>으로 가는 다리가 놓였어요!<br><span>다음 무대는 지금 정성껏 꾸미고 있어요.</span>', next: false,
+      unlock: '<b>제5장 · 설탕 요정의 궁전</b>으로 가는 다리가 놓였어요!<br><span>하늘 위 유리 무대에서 마지막 공연이 열려요.</span>', next: true, nextLabel: '제5장으로 떠나기',
     });
     UI.show('screenClear');
   },
