@@ -183,6 +183,9 @@ kbd { font: 700 12px/1 'Cinzel', serif; padding: 4px 6px; border-radius: 4px; ba
   .rc-field { width: min(460px, 42vw); height: min(64vh, 470px); }
   #recital.coffee .rc-field, #recital.tea .rc-field { width: min(500px, 44vw); height: min(84vh, 640px); }
 }
+/* chapter V: the conducting game draws on the whole screen, over the stage */
+#recital.palace, #recital.palace .rc-field { padding: 0; width: 100%; height: 100%; }
+#recital.palace .rc-field canvas { cursor: crosshair; }
 .rc-info { margin: 14px 0 0; font-size: 15px; color: var(--ink2); line-height: 1.55; }
 .stats dd.long { font-size: 15px; letter-spacing: -0.01em; }
 
@@ -4816,15 +4819,16 @@ const fmtTime = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padSt
 const World = {
   W1: null,
   use(ch) {
-    const toy = ch === 2 && !!Toy.W, snow = ch === 3 && !!Snow.W, sweet = ch === 4 && !!Sweet.W;
-    G.chapter = sweet ? 4 : snow ? 3 : toy ? 2 : 1;
-    this.W1.root.visible = !toy && !snow && !sweet;
+    const toy = ch === 2 && !!Toy.W, snow = ch === 3 && !!Snow.W, sweet = ch === 4 && !!Sweet.W, palace = ch === 5 && !!Palace.W;
+    G.chapter = palace ? 5 : sweet ? 4 : snow ? 3 : toy ? 2 : 1;
+    this.W1.root.visible = !toy && !snow && !sweet && !palace;
     if (Toy.W) Toy.W.root.visible = toy;
     if (Snow.W) Snow.W.root.visible = snow;
     if (Sweet.W) Sweet.W.root.visible = sweet;
-    W = sweet ? Sweet.W : snow ? Snow.W : toy ? Toy.W : this.W1;
-    scene.fog = sweet ? Sweet.fog : snow ? Snow.fog : toy ? Toy.fog : null;
-    scene.background = sweet ? Sweet.bg : snow ? Snow.bg : toy ? Toy.bg : TEX.bg;
+    if (Palace.W) Palace.W.root.visible = palace;
+    W = palace ? Palace.W : sweet ? Sweet.W : snow ? Snow.W : toy ? Toy.W : this.W1;
+    scene.fog = palace ? Palace.fog : sweet ? Sweet.fog : snow ? Snow.fog : toy ? Toy.fog : null;
+    scene.background = palace ? Palace.bg : sweet ? Sweet.bg : snow ? Snow.bg : toy ? Toy.bg : TEX.bg;
     Cam.cfg = sweet ? CAM4 : toy ? CAM2 : CAM1;
     renderer.shadowMap.needsUpdate = true;
   },
@@ -4938,7 +4942,7 @@ const Story = {
   /* ---------- screens ---------- */
   toTitle(first) {
     RUN_ID++; Tasks.clear(); UI.closeDialog();
-    Toy.leave(); Snow.leave(); Sweet.leave(); World.use(1);
+    Toy.leave(); Snow.leave(); Sweet.leave(); Palace.leave(); World.use(1);
     this.resetWorld();
     G.mode = 'title'; G.locked = true;
     Cam.set([0, 6.6, 34], [0, 5.2, 0]); Cam.mode = 'title';
@@ -5007,7 +5011,8 @@ const Story = {
     this.prevMode = G.mode; G.mode = 'paused';
     if (G.chapter === 3) Snow.onPause(true);
     if (G.chapter === 4) Sweet.onPause(true);
-    UI.setHelp(G.chapter === 3 ? Snow.helpText() : G.chapter === 4 ? Sweet.helpText() : '');
+    if (G.chapter === 5) Palace.onPause(true);
+    UI.setHelp(G.chapter === 3 ? Snow.helpText() : G.chapter === 4 ? Sweet.helpText() : G.chapter === 5 ? Palace.helpText() : '');
     this.syncToggles(); UI.show('screenPause');
   },
   resume() {
@@ -5015,6 +5020,7 @@ const Story = {
     UI.hide('screenPause'); G.mode = this.prevMode || 'play';
     if (G.chapter === 3) Snow.onPause(false);
     if (G.chapter === 4) Sweet.onPause(false);
+    if (G.chapter === 5) Palace.onPause(false);
   },
   togglePause() { if (G.mode === 'paused') this.resume(); else this.pause(); },
 
@@ -10838,7 +10844,7 @@ const Recital = {
 
 /* leaving the page mid-rehearsal pauses the game, so the audio clock and the dance stop together */
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden || G.chapter !== 4) return;
+  if (!document.hidden || (G.chapter !== 4 && G.chapter !== 5)) return;
   if (Recital.running && G.mode === 'play') Story.pause();
 });
 
@@ -12083,6 +12089,1053 @@ const Sweet = {
   },
 };
 
+/* ---- 30-palace-config.js ---- */
+/* =====================================================================
+   30 · CHAPTER V CONFIG — the Sugar Plum Palace: the dream gala on a glass stage in the night sky
+   Every number worth tuning lives in this one file (edit it, then run `npm run build`).
+   The gala has three acts: I the Kingdom of Sweets (the three nations), II the Sugar Plum Fairy's solo, III the grand finale.
+   ===================================================================== */
+const PALACE_CFG = {
+  bpm: 100,                          // one tempo for the whole gala: the acts change the metre and the colours, not the speed
+
+  stage: {
+    radius: 14,                      // the floating glass disc
+    rings: [4.4, 8.6, 12.2],         // light rings on the floor (gold inlays under them on the floor texture)
+    dais: 2.4,                       // the round step in the middle, for the soloists
+    pillars: 12, pillarRing: 19,     // sugar-crystal pillars floating round the stage
+  },
+
+  /* the look of every act: the sky (zenith, middle, horizon), the aurora ribbons, the floor rings, the beams, the pillars */
+  acts: [
+    { id: 'sweets', title: '세 나라 축제',
+      sky: ['#0d0620', '#4f1d5c', '#d9708a'], glow: ['#ff8a5c', '#2fb8ac'], aurora: ['#ffcf70', '#39d0c2', '#ff6f86'],
+      ring: '#ffd98a', beam: '#ffe6b8', pillar: ['#ffcf8a', '#8ee6dc', '#ff9aa6'] },
+    { id: 'sugar', title: '설탕 요정의 솔로',
+      sky: ['#0a0317', '#3c165e', '#d27cb2'], glow: ['#ff6fbf', '#8e6bff'], aurora: ['#ff90d4', '#b08aff', '#ffe8f8'],
+      ring: '#ffc4ec', beam: '#ffe0f4', pillar: ['#ffc2e6', '#d7b8ff', '#fff3fb'] },
+    { id: 'finale', title: '대피날레',
+      sky: ['#05040f', '#271868', '#d6a26a'], glow: ['#ff69b3', '#69bfff'], aurora: ['#ff86c4', '#86d4ff', '#ffe08a'],
+      ring: '#fff1c4', beam: '#fff4dc', pillar: ['#ffd6f0', '#c8e6ff', '#fff0c0'] },
+  ],
+
+  /* ---------------- act I: the three nations of the Kingdom of Sweets ----------------
+     Each nation has a troupe of sleeping dancers on the stage (the friends from chapter IV, with their companions), a pad
+     (their own stage) and a leader who waits on it. The baton wakes the dancers it passes, they follow it in a line, and
+     the line peels off at the right pad. */
+  troupes: {
+    order: ['choco', 'coffee', 'tea'],
+    choco:  { name: '스페인',   who: '초콜릿', n: 10, lowN: 7, pad: [-6.6, -1.2], home: [-6.4, 5.4], color: '#ff4f66', glow: '#ff9aa8' },
+    coffee: { name: '아라비아', who: '커피',   n: 10, lowN: 7, pad: [6.6, -1.2],  home: [6.4, 5.4],  color: '#1fb8aa', glow: '#7ff0e2' },
+    tea:    { name: '중국',     who: '차',     n: 10, lowN: 7, pad: [0, 7.4],     home: [0, -6.6],   color: '#f0a52a', glow: '#ffe19a' },
+    padR: 2.9,                       // a pad: its glowing disc
+    ringR: 1.75,                     // the ring of dancers round their leader
+    homeR: 3.4, spacing: 1.7, seed: 5,   // the sleeping dancers' scatter: radius round their home, least gap, random seed
+  },
+  steer: {
+    speed: 13,                       // top speed of the baton over the floor (units per second)
+    keySpeed: 9.5,                   // …and with the arrow keys or WASD
+    wakeR: 1.9,                      // a sleeping dancer within this of the baton wakes and follows it
+    gap: 0.95,                       // distance between the dancers in the line, along the baton's trail
+    follow: 9,                       // how tightly a dancer keeps its place in the line (per second)
+    padLead: 3.0,                    // the baton within this of a pad sends that nation's dancers in from the line
+    arrive: 5.5,                     // speed of a dancer walking from the line to her place on the pad
+    ringR2: 6.4, ringSpin: 0.07,     // act I's last section: the grand ring round the dais, and how fast it turns (turns per bar)
+    playR: 1.6, playGap: 0.8,        // …where the baton is an instrument: it rings the dancer it passes (within playR), who can ring again after playGap seconds
+  },
+  /* act I timeline: five sections, in beats from the first beat */
+  act1: {
+    sections: [
+      { id: 'intro',  beats: 32, meter: 4 },   // wake the dancers
+      { id: 'choco',  beats: 33, meter: 3 },   // the Spanish dance
+      { id: 'coffee', beats: 32, meter: 4 },   // the Arabian dance
+      { id: 'tea',    beats: 32, meter: 2 },   // the Chinese dance
+      { id: 'ring',   beats: 32, meter: 4 },   // all three together round the dais
+    ],
+    countIn: 3,
+    stars: [0.6, 0.85],              // accuracy needed for two and three stars (one star always)
+    keys: { up: ['ArrowUp', 'KeyW'], down: ['ArrowDown', 'KeyS'], left: ['ArrowLeft', 'KeyA'], right: ['ArrowRight', 'KeyD'] },
+  },
+};
+
+/* ---- 31-palacetex.js ---- */
+/* =====================================================================
+   31 · CHAPTER V TEXTURES & MATERIALS — the glass stage, the crystals and the sky of the dream gala
+   ===================================================================== */
+const MAT5 = {};
+
+/* the glass floor seen from above: a sugar-glass rose of sixteen petals, gold inlays under the light rings, scallops at the rim */
+function palaceFloorTex() {
+  const s = 1024, cv = makeCanvas(s, s), c = cv.getContext('2d'), C = s / 2, S = PALACE_CFG.stage;
+  const rr = (r) => (r / S.radius) * C;   // stage metres → texture pixels
+  const g0 = c.createRadialGradient(C, C, 0, C, C, C);
+  g0.addColorStop(0, '#fff8fc'); g0.addColorStop(0.5, '#f1d6e8'); g0.addColorStop(1, '#d9b4d2');
+  c.fillStyle = g0; c.fillRect(0, 0, s, s);
+  const tints = ['#f4afd1', '#c8b1f4', '#afd5f4', '#f5d29e'];
+  for (let i = 0; i < 16; i++) {
+    const a0 = (i / 16) * TAU + 0.02, a1 = a0 + TAU / 16 - 0.04, inR = rr(2.7), outR = rr(13.2);
+    const g = c.createRadialGradient(C, C, inR, C, C, outR);
+    g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(0.3, tints[i % 4]); g.addColorStop(0.85, tints[(i + 1) % 4]); g.addColorStop(1, 'rgba(255,255,255,0.1)');
+    c.fillStyle = g; c.globalAlpha = 0.82;
+    c.beginPath(); c.moveTo(C + Math.cos(a0) * inR, C + Math.sin(a0) * inR); c.arc(C, C, outR, a0, a1); c.lineTo(C + Math.cos(a1) * inR, C + Math.sin(a1) * inR); c.closePath(); c.fill();
+    // a thin bright vein down the middle of every petal
+    const am = (a0 + a1) / 2; c.globalAlpha = 0.55; c.strokeStyle = '#ffffff'; c.lineWidth = 2;
+    c.beginPath(); c.moveTo(C + Math.cos(am) * inR, C + Math.sin(am) * inR); c.lineTo(C + Math.cos(am) * outR, C + Math.sin(am) * outR); c.stroke();
+  }
+  c.globalAlpha = 1;
+  c.strokeStyle = '#d4a64c';
+  for (const r of S.rings) {
+    c.lineWidth = 6; c.beginPath(); c.arc(C, C, rr(r), 0, TAU); c.stroke();
+    c.lineWidth = 2; c.beginPath(); c.arc(C, C, rr(r) + 11, 0, TAU); c.stroke(); c.beginPath(); c.arc(C, C, rr(r) - 11, 0, TAU); c.stroke();
+  }
+  c.lineWidth = 4; c.beginPath(); c.arc(C, C, rr(13.65), 0, TAU); c.stroke();
+  for (let i = 0; i < 112; i++) {
+    const a = (i / 112) * TAU; c.beginPath(); c.arc(C + Math.cos(a) * rr(13.2), C + Math.sin(a) * rr(13.2), 6.5, 0, TAU);
+    c.fillStyle = i % 2 ? '#f2c1d9' : '#fff1f7'; c.fill();
+  }
+  // sugar glitter
+  for (let i = 0; i < 2600; i++) {
+    const a = rnd(0, TAU), r = Math.sqrt(rnd(0, 1)) * C;
+    c.fillStyle = `rgba(255,255,255,${rnd(0.2, 0.75)})`; c.fillRect(C + Math.cos(a) * r, C + Math.sin(a) * r, rnd(1, 2.6), rnd(1, 2.6));
+  }
+  return toTex(cv, { aniso: 8 });
+}
+
+/* the dais top: a gold eight-pointed star on pearl */
+function palaceDaisTex() {
+  const s = 512, cv = makeCanvas(s, s), c = cv.getContext('2d'), C = s / 2;
+  const g = c.createRadialGradient(C, C, 0, C, C, C); g.addColorStop(0, '#ffffff'); g.addColorStop(0.7, '#fbe9f3'); g.addColorStop(1, '#f1d2e6');
+  c.fillStyle = g; c.fillRect(0, 0, s, s);
+  const star = (R0, R1, n, rot, fill) => {
+    c.beginPath();
+    for (let i = 0; i < n * 2; i++) { const r = i % 2 ? R1 : R0, a = rot + (i * Math.PI) / n; const x = C + Math.cos(a) * r, y = C + Math.sin(a) * r; i ? c.lineTo(x, y) : c.moveTo(x, y); }
+    c.closePath(); c.fillStyle = fill; c.fill();
+  };
+  star(236, 92, 8, -Math.PI / 2, '#e2b75e'); star(200, 80, 8, -Math.PI / 2 + Math.PI / 8, '#f6dc96'); star(120, 46, 8, -Math.PI / 2, '#fff4d6');
+  c.strokeStyle = '#c99a42'; c.lineWidth = 5; c.beginPath(); c.arc(C, C, 246, 0, TAU); c.stroke();
+  c.lineWidth = 2; c.beginPath(); c.arc(C, C, 226, 0, TAU); c.stroke();
+  for (let i = 0; i < 700; i++) { const a = rnd(0, TAU), r = Math.sqrt(rnd(0, 1)) * C; c.fillStyle = `rgba(255,255,255,${rnd(0.25, 0.8)})`; c.fillRect(C + Math.cos(a) * r, C + Math.sin(a) * r, 1.6, 1.6); }
+  return toTex(cv, { aniso: 8 });
+}
+
+/* an aurora ribbon: soft at both ends, a bright core with a curtain of rays below it (white; the material colours it) */
+function palaceRibbonTex() {
+  const w = 512, h = 128, cv = makeCanvas(w, h), c = cv.getContext('2d'), img = c.createImageData(w, h), D = img.data;
+  for (let y = 0; y < h; y++) {
+    const v = y / (h - 1);
+    for (let x = 0; x < w; x++) {
+      const u = x / (w - 1);
+      const ends = Math.pow(Math.sin(Math.PI * u), 0.85);
+      const core = Math.exp(-(((v - 0.34) / 0.1) ** 2));
+      const rays = (0.5 + 0.5 * Math.sin(u * 150 + Math.sin(u * 21) * 5)) * Math.exp(-(((v - 0.62) / 0.24) ** 2));
+      const a = ends * clamp(core * 0.95 + rays * 0.55, 0, 1);
+      const i = (y * w + x) * 4; D[i] = D[i + 1] = D[i + 2] = 255; D[i + 3] = Math.round(255 * a);
+    }
+  }
+  c.putImageData(img, 0, 0);
+  return toTex(cv);
+}
+
+/* a sugar crystal, bottom to top: dim at the root, white at the point, faceted stripes and a few bright flaws */
+function palaceCrystalTex() {
+  const w = 96, h = 256, cv = makeCanvas(w, h), c = cv.getContext('2d');
+  const g = c.createLinearGradient(0, h, 0, 0);
+  g.addColorStop(0, '#3a3050'); g.addColorStop(0.45, '#9d92c9'); g.addColorStop(0.85, '#f3eeff'); g.addColorStop(1, '#ffffff');
+  c.fillStyle = g; c.fillRect(0, 0, w, h);
+  for (let k = 0; k < 6; k++) { c.fillStyle = k % 2 ? 'rgba(255,255,255,0.2)' : 'rgba(20,10,40,0.12)'; c.fillRect((k / 6) * w, 0, w / 6, h); }
+  for (let i = 0; i < 46; i++) { c.fillStyle = `rgba(255,255,255,${rnd(0.15, 0.55)})`; c.fillRect(rnd(0, w), rnd(0, h), rnd(1, 3), rnd(4, 22)); }
+  return toTex(cv);
+}
+
+/* the sky: a gradient dome (zenith, middle, horizon) with two soft nebula glows; it follows the camera */
+const PSKY_VERT = /* glsl */`
+  varying vec3 vDir;
+  void main() { vDir = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`;
+const PSKY_FRAG = /* glsl */`
+  uniform vec3 uTop; uniform vec3 uMid; uniform vec3 uLow; uniform vec3 uGlowA; uniform vec3 uGlowB;
+  varying vec3 vDir;
+  void main() {
+    vec3 d = normalize(vDir); float h = d.y;
+    vec3 col = mix(uLow, uMid, smoothstep(-0.1, 0.14, h));
+    col = mix(col, uTop, smoothstep(0.14, 0.66, h));
+    col += uGlowA * pow(max(0.0, dot(d, normalize(vec3(-0.55, 0.22, -0.8)))), 6.0) * 0.42;
+    col += uGlowB * pow(max(0.0, dot(d, normalize(vec3(0.62, 0.16, -0.77)))), 8.0) * 0.36;
+    col += uLow * 0.35 * exp(-pow(h / 0.07, 2.0));   // a thin bright band on the horizon
+    col = mix(col, uLow * 0.55, smoothstep(0.0, -0.4, h));
+    gl_FragColor = vec4(col, 1.0);
+    #include <colorspace_fragment>
+  }`;
+
+function buildPalaceTextures() {
+  TEX.p5floor = palaceFloorTex(); TEX.p5dais = palaceDaisTex(); TEX.p5ribbon = palaceRibbonTex(); TEX.p5crystal = palaceCrystalTex();
+}
+function buildPalaceMaterials() {
+  MAT5.floor = new THREE.MeshStandardMaterial({ map: TEX.p5floor, roughness: 0.2, metalness: 0.06, emissive: '#ffffff', emissiveMap: TEX.p5floor, emissiveIntensity: 0.07 });
+  MAT5.dais = new THREE.MeshStandardMaterial({ map: TEX.p5dais, roughness: 0.24, metalness: 0.12, emissive: '#ffffff', emissiveMap: TEX.p5dais, emissiveIntensity: 0.12 });
+  MAT5.side = new THREE.MeshStandardMaterial({ color: '#f3d3e5', roughness: 0.32, metalness: 0.05 });
+  MAT5.under = new THREE.MeshStandardMaterial({ color: '#ffc8e4', emissive: '#ff8cc8', emissiveIntensity: 0.6, roughness: 0.18, transparent: true, opacity: 0.86 });
+  MAT5.crystal = new THREE.MeshStandardMaterial({ color: '#ffffff', emissive: '#ffffff', emissiveMap: TEX.p5crystal, emissiveIntensity: 0.4, roughness: 0.1, metalness: 0, flatShading: true, transparent: true, opacity: 0.76, depthWrite: false });
+  MAT5.core = new THREE.MeshBasicMaterial({ color: '#ffffff', map: TEX.p5crystal, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
+  MAT5.gold = new THREE.MeshStandardMaterial({ color: '#e6bb5e', metalness: 0.75, roughness: 0.28, emissive: '#6e4c12', emissiveIntensity: 0.3 });
+  MAT5.palace = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.3, metalness: 0.05, emissive: '#ffe2f0', emissiveIntensity: 0.08 });
+  MAT5.glass = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.14, metalness: 0.1, emissive: '#ffffff', emissiveIntensity: 0.2 });
+}
+
+/* ---- 32-palaceland.js ---- */
+/* =====================================================================
+   32 · CHAPTER V WORLD — a glass stage floating in the night sky before the Sugar Plum Palace
+   ===================================================================== */
+const _p5c = new THREE.Color(), _p5c2 = new THREE.Color(), _p5v = new THREE.Vector3(), _p5m = new THREE.Matrix4(), _p5q = new THREE.Quaternion(), _p5s = new THREE.Vector3();
+const _p5up = new THREE.Vector3(0, 1, 0), _p5down = new THREE.Vector3(0, -1, 0);
+
+function buildPalaceStage(root) {
+  const S = PALACE_CFG.stage, R = S.radius;
+  const W = { root, colliders: [], dyn: [], anim: [], beams: [], props: {}, lastBar: -1 };
+
+  /* ---------------- sky: a gradient dome and the stars travel with the camera (the far plane is 140) ---------------- */
+  const skyMat = new THREE.ShaderMaterial({
+    uniforms: { uTop: { value: new THREE.Color() }, uMid: { value: new THREE.Color() }, uLow: { value: new THREE.Color() }, uGlowA: { value: new THREE.Color() }, uGlowB: { value: new THREE.Color() } },
+    vertexShader: PSKY_VERT, fragmentShader: PSKY_FRAG, side: THREE.BackSide, depthWrite: false,
+  });
+  const skyRig = new THREE.Group(); root.add(skyRig);
+  const sky = new THREE.Mesh(new THREE.SphereGeometry(112, 48, 24), skyMat); sky.renderOrder = -10; sky.frustumCulled = false; skyRig.add(sky);
+  const stars = [];
+  for (let i = 0; i < (DEVICE.mobile ? 340 : 560); i++) {
+    const a = rnd(0, TAU), y = Math.pow(rnd(0.03, 1), 0.65), r = Math.sqrt(1 - y * y);
+    stars.push({ p: [Math.cos(a) * r * 100, y * 100, Math.sin(a) * r * 100], c: pick(['#ffffff', '#fff1d6', '#d8e6ff', '#ffd9ef']), s: rnd(0.28, 0.95), tw: rnd(0.3, 0.95) });
+  }
+  const starPts = makeGlowPoints(stars, { boost: 1 }); starPts.renderOrder = -9; skyRig.add(starPts);
+  W.sky = { rig: skyRig, mat: skyMat };
+
+  /* ---------------- aurora ribbons far behind the palace ---------------- */
+  W.ribbons = [];
+  for (let i = 0; i < 5; i++) {
+    const geo = new THREE.PlaneGeometry(118, 10 + i * 1.6, 80, 1);
+    const mat = new THREE.MeshBasicMaterial({ map: TEX.p5ribbon, color: '#ffffff', transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false, fog: false });
+    const m = new THREE.Mesh(geo, mat); m.frustumCulled = false; m.renderOrder = -6;
+    m.position.set(rnd(-10, 10), 19 + i * 5.4, -84 + i * 5); m.rotation.set(-0.42 + i * 0.05, rnd(-0.12, 0.12), rnd(-0.16, 0.16));
+    root.add(m);
+    W.ribbons.push({ m, base: geo.attributes.position.array.slice(), ph: rnd(0, TAU), speed: rnd(0.22, 0.42), amp: rnd(2.6, 4.6) });
+  }
+
+  /* ---------------- the stage: a glass disc with a pointed sugar-crystal keel below it ---------------- */
+  const stage = new THREE.Group(); root.add(stage); W.stage = stage;
+  const top = new THREE.Mesh(new THREE.CircleGeometry(R, 160).rotateX(-Math.PI / 2), MAT5.floor); top.receiveShadow = true; stage.add(top);
+  const band = new THREE.Mesh(new THREE.CylinderGeometry(R, R * 0.95, 0.9, 160, 1, true), MAT5.side); band.position.y = -0.45; stage.add(band);
+  const keel = new THREE.Mesh(new THREE.ConeGeometry(R * 0.95, 9, 120, 1, true), MAT5.under); keel.rotation.x = Math.PI; keel.position.y = -0.9 - 4.5; stage.add(keel);
+  for (const [r, y, t] of [[R + 0.05, 0.02, 0.15], [R * 0.95, -0.9, 0.1]]) { const m = new THREE.Mesh(new THREE.TorusGeometry(r, t, 10, 200), MAT5.gold); m.rotation.x = Math.PI / 2; m.position.y = y; stage.add(m); }
+  {   // crystal drops hanging from the rim of the keel
+    const nd = 84, drops = new THREE.InstancedMesh(new THREE.OctahedronGeometry(0.3, 0), MAT5.crystal, nd);
+    for (let i = 0; i < nd; i++) {
+      const a = (i / nd) * TAU, len = [2.8, 1.5, 2.1, 1.1][i % 4];
+      _p5m.compose(_p5v.set(Math.cos(a) * R * 0.93, -1.05 - len * 0.32, Math.sin(a) * R * 0.93), _p5q.identity(), _p5s.set(0.5, len, 0.5)); drops.setMatrixAt(i, _p5m);
+    }
+    stage.add(drops);
+  }
+
+  /* light rings on the floor, and the ripple that runs out from the dais on every downbeat */
+  const glowMat = (color, opacity) => new THREE.MeshBasicMaterial({ color, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
+  W.rings = S.rings.map((r, i) => { const m = new THREE.Mesh(new THREE.TorusGeometry(r, 0.06, 6, 220), glowMat('#ffffff', 0.8)); m.rotation.x = Math.PI / 2; m.position.y = 0.04 + i * 0.002; stage.add(m); return m; });
+  const rip = new THREE.Mesh(new THREE.RingGeometry(0.982, 1.0, 180).rotateX(-Math.PI / 2), glowMat('#ffffff', 0)); rip.position.y = 0.05; stage.add(rip);
+  W.ripple = { m: rip, t: 9 };
+
+  /* the dais in the middle */
+  const dais = new THREE.Mesh(new THREE.CylinderGeometry(S.dais, S.dais + 0.25, 0.34, 120), [MAT5.side, MAT5.dais, MAT5.side]); dais.position.y = 0.17; stage.add(dais);
+  { const m = new THREE.Mesh(new THREE.TorusGeometry(S.dais + 0.02, 0.08, 8, 140), MAT5.gold); m.rotation.x = Math.PI / 2; m.position.y = 0.34; stage.add(m); }
+  W.daisTop = 0.34;
+
+  /* footlights round the rim */
+  const foot = [];
+  for (let i = 0; i < 64; i++) { const a = (i / 64) * TAU; foot.push({ p: [Math.cos(a) * (R - 0.35), 0.16, Math.sin(a) * (R - 0.35)], c: i % 2 ? '#fff2d8' : '#ffd8ee', s: 0.55, tw: 0.35 }); }
+  W.footGlow = makeGlowPoints(foot, { boost: 0.9 }); stage.add(W.footGlow);
+
+  /* ---------------- twelve sugar-crystal pillars floating round the stage ---------------- */
+  const pGeo = new THREE.LatheGeometry([new THREE.Vector2(0.0, 0), new THREE.Vector2(0.64, 0.4), new THREE.Vector2(0.76, 1.3), new THREE.Vector2(0.7, 7.6), new THREE.Vector2(0.0, 10.4)], 6);
+  const np = S.pillars, pillars = new THREE.InstancedMesh(pGeo, MAT5.crystal, np), cores = new THREE.InstancedMesh(pGeo, MAT5.core, np), tips = [], isle = new Batch(MAT5.palace);
+  for (let i = 0; i < np; i++) {
+    const a = (i / np) * TAU + TAU / (np * 2), tall = i % 2 ? 1.0 : 1.42, x = Math.cos(a) * S.pillarRing, z = Math.sin(a) * S.pillarRing, y = -3.4 + (i % 3) * 0.5;
+    _p5q.setFromAxisAngle(_p5up, rnd(0, TAU));
+    _p5m.compose(_p5v.set(x, y, z), _p5q, _p5s.set(tall * 0.95, tall, tall * 0.95)); pillars.setMatrixAt(i, _p5m);
+    _p5m.compose(_p5v.set(x, y + 0.3, z), _p5q, _p5s.set(tall * 0.4, tall * 0.95, tall * 0.4)); cores.setMatrixAt(i, _p5m);
+    pillars.setColorAt(i, _p5c.set('#ffffff'));
+    tips.push({ p: [x, y + 10.4 * tall, z], c: '#ffffff', s: 4.5, tw: 0.4 });
+    isle.add(GEO.sph(18, 10), i % 2 ? '#fbe8f3' : '#ece4fb', TRS(x, y - 0.2, z, 0, 0, 0, 2.3, 0.75, 2.3));
+    isle.add(GEO.cone(14), '#cdb8e8', TRS(x, y - 1.6, z, Math.PI, 0, 0, 1.9, 2.6, 1.9));
+  }
+  cores.renderOrder = 3; pillars.renderOrder = 4;
+  root.add(cores, pillars, isle.build({ cast: false }));
+  W.pillars = pillars; W.cores = cores;
+  W.tipGlow = makeGlowPoints(tips, { boost: 0.85 }); root.add(W.tipGlow);
+
+  /* ---------------- the Sugar Plum Palace on a bank of cloud behind the stage ---------------- */
+  {
+    const PZ = -50, y0 = -4, b = new Batch(MAT5.palace), g = new Batch(MAT5.glass), win = [];
+    for (let i = 0; i < 11; i++) b.add(GEO.sph(18, 12), i % 2 ? '#fbe6f2' : '#eee0fb', TRS(-27 + i * 5.4, y0 - 4 + rnd(-1, 1), PZ + rnd(-3, 5), 0, 0, 0, rnd(6.5, 9.5), rnd(2.6, 3.8), rnd(5, 7.5)));
+    b.add(roundBox(28, 8, 9, 0.6, 2), '#f4cfe2', TRS(0, y0 + 4, PZ));
+    b.add(GEO.box(), '#e6c477', TRS(0, y0 + 8.15, PZ, 0, 0, 0, 28.4, 0.36, 9.4));
+    for (let i = 0; i < 12; i++) b.add(GEO.cyl(14), '#fff6fa', TRS(-12.65 + i * 2.3, y0 + 3.7, PZ + 4.65, 0, 0, 0, 0.42, 7.4, 0.42));
+    const spire = (x, z, r, h, dome) => {
+      b.add(GEO.cyl(22), '#f7dbea', TRS(x, y0 + 8 + h / 2, z, 0, 0, 0, r, h, r));
+      b.add(GEO.torus(r * 1.03, 0.13, 6, 30), '#e6c477', TRS(x, y0 + 8 + h, z, Math.PI / 2, 0, 0));
+      g.add(lathe([[r * 1.12, 0], [r * 1.4, r * 0.7], [r * 0.96, r * 1.6], [r * 0.32, r * 2.45], [0, r * 3.1]], 26, 14), dome, TRS(x, y0 + 8 + h, z));
+      b.add(GEO.cone(10), '#f0cf7c', TRS(x, y0 + 8 + h + r * 3.1 + 0.9, z, 0, 0, 0, 0.17, 1.9, 0.17));
+      for (let k = 0; k < 3; k++) win.push({ p: [x, y0 + 8 + h * (0.28 + k * 0.22), z + r * 1.01], c: '#ffd9a0', s: 1.1, tw: 0.25 });
+    };
+    spire(0, PZ, 3.1, 15, '#ffb3d8');
+    for (const sx of [-1, 1]) { spire(sx * 8.8, PZ + 0.6, 1.95, 9.5, '#c2d8ff'); spire(sx * 15.2, PZ + 1.5, 1.35, 5.8, '#ffe0aa'); }
+    for (let i = 0; i < 13; i++) win.push({ p: [-12 + i * 2, y0 + 4.6, PZ + 4.75], c: '#ffd6a0', s: 1.0, tw: 0.3 });
+    root.add(b.build({ cast: false }), g.build({ cast: false }));
+    W.palaceGlow = makeGlowPoints(win, { boost: 0.5 }); root.add(W.palaceGlow);
+  }
+
+  /* ---------------- far islands: frosted pines and lollipops on floating sugar rocks ---------------- */
+  {
+    const isl = new Batch(MAT.gloss);
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * TAU + 0.25, r = rnd(34, 46), x = Math.cos(a) * r, z = Math.sin(a) * r * 0.85 - 4, y = rnd(-9, 4);
+      if (z < -34 && Math.abs(x) < 24) continue;   // keep the palace clear
+      isl.add(GEO.sph(16, 10), '#f6ecf8', TRS(x, y, z, 0, 0, 0, rnd(2.4, 3.6), 0.9, rnd(2.2, 3.2)));
+      isl.add(GEO.cone(12), '#bfaedc', TRS(x, y - 1.7, z, Math.PI, 0, 0, rnd(2.0, 2.8), 3.4, rnd(2.0, 2.6)));
+      if (i % 2) for (let k = 0; k < 3; k++) isl.add(GEO.cone(10), '#e2f3ee', TRS(x + rnd(-1.3, 1.3), y + 1.5, z + rnd(-1, 1), 0, 0, 0, 0.62, 2.6, 0.62));
+      else { isl.add(GEO.cyl(8), '#fff6fb', TRS(x, y + 1.6, z, 0, 0, 0, 0.09, 2.6, 0.09)); isl.add(GEO.sph(14, 10), pick(['#ff9cc8', '#9cd8ff', '#ffd27a']), TRS(x, y + 3.1, z, Math.PI / 2, 0, 0, 0.95, 0.95, 0.32)); }
+    }
+    root.add(isl.build({ cast: false }));
+  }
+
+  /* ---------------- six beams of light sweeping the stage from high above ---------------- */
+  W.beamList = [];
+  const btex = beamTex();
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * TAU + 0.3, src = new THREE.Vector3(Math.cos(a) * 10, 27, Math.sin(a) * 10 - 2);
+    const geo = new THREE.CylinderGeometry(0.2, i === 0 ? 1.7 : 2.9, 1, 28, 1, true); geo.translate(0, -0.5, 0);   // apex at the top, length 1 along -y
+    const mat = new THREE.MeshBasicMaterial({ map: btex, color: '#ffffff', transparent: true, opacity: 0.18, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false });
+    const m = new THREE.Mesh(geo, mat); m.position.copy(src); m.renderOrder = 8; m.frustumCulled = false; root.add(m);
+    W.beamList.push({ m, src, ph: rnd(0, TAU) });
+  }
+
+  /* ---------------- a halo of glinting snow spiralling round the stage ---------------- */
+  {
+    const halo = [];
+    for (let i = 0; i < 180; i++) { const u = i / 180, a = u * TAU * 5, r = R + 1.2 + Math.sin(u * TAU * 3) * 0.8; halo.push({ p: [Math.cos(a) * r, 0.4 + u * 9.5, Math.sin(a) * r], c: pick(['#ffffff', '#d8ecff', '#e9dcff']), s: rnd(0.35, 0.75), tw: 0.8 }); }
+    W.halo = new THREE.Group(); W.halo.add(makeGlowPoints(halo, { boost: 1 })); root.add(W.halo);
+  }
+
+  /* ---------------- snow, and the lights ---------------- */
+  W.snow = makeSnow(DEVICE.mobile ? 260 : 460, [-36, -6, -32], [36, 26, 34], { size: 1.1, speed: 0.55, opacity: 0.9 }); root.add(W.snow);
+  const L = {};
+  L.hemi = new THREE.HemisphereLight('#d9dcff', '#4c3270', 0.9);
+  L.key = new THREE.DirectionalLight('#fff3f8', 1.45); L.key.position.set(-14, 28, 24); L.key.target.position.set(0, 0, 0);
+  L.rim = new THREE.DirectionalLight('#b9c7ff', 0.9); L.rim.position.set(16, 14, -28);
+  L.warm = new THREE.PointLight('#ff9fd6', 14, 36, 1.3); L.warm.position.set(-8, 7, 6);
+  L.cool = new THREE.PointLight('#9fc8ff', 14, 36, 1.3); L.cool.position.set(8, 7, 6);
+  root.add(L.hemi, L.key, L.key.target, L.rim, L.warm, L.cool);
+  W.lights = L;
+
+  /* ---------------- act colours: blend act a into act b by k ---------------- */
+  W.setPalette = (a, b, k) => {
+    const A = PALACE_CFG.acts[a], B = PALACE_CFG.acts[b];
+    const mix = (out, x, y) => out.set(x).lerp(_p5c2.set(y), k);
+    const U = skyMat.uniforms;
+    mix(U.uTop.value, A.sky[0], B.sky[0]); mix(U.uMid.value, A.sky[1], B.sky[1]); mix(U.uLow.value, A.sky[2], B.sky[2]);
+    mix(U.uGlowA.value, A.glow[0], B.glow[0]); mix(U.uGlowB.value, A.glow[1], B.glow[1]);
+    W.ribbons.forEach((r, i) => mix(r.m.material.color, A.aurora[i % 3], B.aurora[i % 3]));
+    W.rings.forEach((m) => mix(m.material.color, A.ring, B.ring)); mix(W.ripple.m.material.color, A.ring, B.ring);
+    W.beamList.forEach((bm) => mix(bm.m.material.color, A.beam, B.beam));
+    for (let i = 0; i < np; i++) { mix(_p5c, A.pillar[i % 3], B.pillar[i % 3]); pillars.setColorAt(i, _p5c); }
+    pillars.instanceColor.needsUpdate = true;
+    mix(MAT5.crystal.emissive, A.pillar[1], B.pillar[1]); mix(MAT5.core.color, A.ring, B.ring);
+  };
+
+  /* ---------------- every frame: the sky follows the camera, ribbons wave, rings breathe with the beat ---------------- */
+  W.update = (dt, t, beat, perBar) => {
+    skyRig.position.copy(camera.position);
+    for (const r of W.ribbons) {
+      const P = r.m.geometry.attributes.position, B0 = r.base;
+      for (let j = 0; j < P.count; j++) { const x = B0[j * 3]; P.setY(j, B0[j * 3 + 1] + Math.sin(x * 0.055 + t * r.speed + r.ph) * r.amp); P.setZ(j, Math.cos(x * 0.04 + t * r.speed * 0.7 + r.ph) * 5); }
+      P.needsUpdate = true;
+    }
+    const f = beat - Math.floor(beat), pulse = Math.exp(-f * 4);
+    W.rings.forEach((m, i) => { const ph = (((beat - i * 0.18) % 1) + 1) % 1; m.material.opacity = 0.32 + 0.6 * Math.exp(-ph * 3.2); });
+    const bar = Math.floor(beat / perBar);
+    if (bar !== W.lastBar) { W.lastBar = bar; W.ripple.t = 0; }
+    W.ripple.t += dt;
+    const rk = W.ripple.t / 1.7;
+    if (rk < 1) { W.ripple.m.scale.setScalar(lerp(S.dais + 0.3, R - 0.25, Ease.out(rk))); W.ripple.m.material.opacity = 0.95 * (1 - rk); } else W.ripple.m.material.opacity = 0;
+    MAT5.crystal.emissiveIntensity = 0.28 + 0.4 * pulse; MAT5.core.opacity = 0.45 + 0.4 * pulse;
+    W.tipGlow.material.uniforms.uBoost.value = 0.6 + 0.6 * pulse;
+    W.beamList.forEach((bm, i) => {
+      const a = t * 0.21 + bm.ph, r = i === 0 ? 0 : 4 + 4.2 * Math.sin(t * 0.16 + bm.ph);
+      _p5v.set(Math.cos(a) * r, i === 0 ? W.daisTop : 0, Math.sin(a) * r).sub(bm.src);
+      const len = _p5v.length(); _p5v.divideScalar(len);
+      bm.m.quaternion.setFromUnitVectors(_p5down, _p5v); bm.m.scale.set(1, len, 1);
+      bm.m.material.opacity = i === 0 ? 0.05 + 0.03 * pulse : 0.03 + 0.03 * pulse;
+    });
+    W.halo.rotation.y = t * 0.12;
+    for (const id in W.pads) {
+      const P = W.pads[id], pl = 0.78 + 0.22 * Math.sin(t * 3.2 + P.ph), k = P.glow * pl;
+      P.disc.material.opacity = Math.min(0.62, 0.3 * k); P.rim.material.opacity = Math.min(1, 0.6 + 0.3 * k); P.ring.material.opacity = Math.min(1, 0.5 * k);
+      P.col.material.opacity = 0.2 * k; P.star.material.uniforms.uBoost.value = 0.45 + 0.7 * k;
+    }
+    L.warm.position.set(Math.cos(t * 0.3) * 9, 7, Math.sin(t * 0.3) * 9);
+    L.cool.position.set(Math.cos(t * 0.3 + Math.PI) * 9, 7, Math.sin(t * 0.3 + Math.PI) * 9);
+  };
+
+  /* ---------------- the three nations' pads: a glowing disc, the ring their dancers stand on, a column of light and a star ---------------- */
+  {
+    const Tp = PALACE_CFG.troupes, bt = beamTex(); W.pads = {};
+    const add = (color, opacity) => new THREE.MeshBasicMaterial({ color, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
+    Tp.order.forEach((id, k) => {
+      const U = Tp[id], g = new THREE.Group(); g.position.set(U.pad[0], 0.035, U.pad[1]); stage.add(g);
+      const solid = (op) => new THREE.MeshBasicMaterial({ color: U.color, transparent: true, opacity: op, depthWrite: false, toneMapped: false });
+      const disc = new THREE.Mesh(new THREE.CircleGeometry(Tp.padR, 72).rotateX(-Math.PI / 2), solid(0.34));
+      const rim = new THREE.Mesh(new THREE.TorusGeometry(Tp.padR, 0.1, 6, 110), solid(0.95)); rim.rotation.x = Math.PI / 2;
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(Tp.ringR, 0.04, 6, 90), add(U.glow, 0.55)); ring.rotation.x = Math.PI / 2;
+      const col = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 13, 24, 1, true).translate(0, 6.5, 0), new THREE.MeshBasicMaterial({ map: bt, color: U.color, transparent: true, opacity: 0.2, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false }));
+      const star = makeGlowPoints([{ p: [0, 3.5, 0], c: U.glow, s: 4.2, tw: 0.3, ph: k * 0.33 }], { cell: CELL.star, boost: 1 });
+      g.add(disc, rim, ring, col, star);
+      W.pads[id] = { g, disc, rim, ring, col, star, glow: 0.6, ph: k * 2.1 };
+    });
+    W.setPadGlow = (id, k) => { W.pads[id].glow = k; };
+  }
+
+  W.setPalette(0, 0, 0);
+  return W;
+}
+
+/* ---- 33-palacecrowd.js ---- */
+/* =====================================================================
+   33 · CHAPTER V CORPS — many dancers drawn instanced (one draw call per body part for the whole troupe),
+   and what they do: sleep, follow the baton, wait on their pad, and dance their nation's dance
+   ===================================================================== */
+const _cm = new THREE.Matrix4(), _cm2 = new THREE.Matrix4(), _cq = new THREE.Quaternion(), _cp = new THREE.Vector3(), _cs = new THREE.Vector3();
+const _cqFlat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2), _cUp = new THREE.Vector3(0, 1, 0);
+
+/* a troupe built from one posed template doll: pose(P) poses the template, write(i, …) copies it to dancer i */
+function makeCrowd(root, make, cap) {
+  const C = { group: new THREE.Group(), tpl: make(), lists: [], inst: [], n: cap, cap };
+  C.group.name = 'crowd'; C.group.visible = false; root.add(C.group);
+  C.tpl.root.traverse((o) => { if (o.isMesh && o !== C.tpl.wand) C.lists.push(o); });
+  C.inst = C.lists.map((m) => {
+    const im = new THREE.InstancedMesh(m.geometry, m.material, cap);
+    im.instanceMatrix.setUsage(THREE.DynamicDrawUsage); im.frustumCulled = false; im.castShadow = false; im.receiveShadow = false; im.renderOrder = m.renderOrder;
+    C.group.add(im); return im;
+  });
+  C.blobs = new THREE.InstancedMesh(GEO.plane(), MAT.shadow, cap);
+  C.blobs.instanceMatrix.setUsage(THREE.DynamicDrawUsage); C.blobs.frustumCulled = false; C.blobs.renderOrder = 2; C.group.add(C.blobs);
+  C.tpl.root.updateMatrixWorld(true);
+  C.setCount = (n) => { C.n = n; C.inst.forEach((im) => { im.count = n; }); C.blobs.count = n; };
+  C.pose = (P, t) => { applyPose(C.tpl, P, t); C.tpl.root.updateMatrixWorld(true); };
+  C.write = (i, x, y, z, yaw, s, floor = 0) => {
+    _cq.setFromAxisAngle(_cUp, yaw); _cm.compose(_cp.set(x, y, z), _cq, _cs.set(s, s, s));
+    for (let k = 0; k < C.lists.length; k++) { _cm2.multiplyMatrices(_cm, C.lists[k].matrixWorld); C.inst[k].setMatrixAt(i, _cm2); }
+    _cm2.compose(_cp.set(x, floor + 0.024, z), _cqFlat, _cs.set(0.82 * s, 0.82 * s, 1)); C.blobs.setMatrixAt(i, _cm2);
+  };
+  C.flush = () => { C.inst.forEach((im) => { im.instanceMatrix.needsUpdate = true; }); C.blobs.instanceMatrix.needsUpdate = true; };
+  C.setCount(cap);
+  return C;
+}
+
+/* a small seeded random generator, so the stage is laid out the same way every time */
+function mulberry32(a) { return () => { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+
+/* ---------------- poses (P is a fresh newPose; t seconds of wall time, b beats into the dance, i the dancer) ---------------- */
+const NATION_STEP = {
+  /* Spanish, 3/4: a balancé with castanet arms and a stamp on every downbeat, a quick turn at the end of every fourth bar */
+  choco(P, b, t, i) {
+    const bar = Math.floor(b / 3), f = b / 3 - bar;
+    if (bar % 4 === 3 && f > 0.35) { Step.pirouette(P, (f - 0.35) / 0.65, 'fifth'); return; }
+    Step.balance(P, f, bar + (i % 2), i % 3 ? 1 : -1);
+    if (f < 0.22) { const k = Math.sin((f / 0.22) * Math.PI); P.rlx = lerp(P.rlx, -0.5, k); P.by += 0.03 * k; }
+    P.hz += 0.06 * Math.sin(t * 5 + i);
+  },
+  /* Arabian, 4/4: a slow sway of the hips with the arms flowing in an S, a turn at the end of every fourth bar */
+  coffee(P, b, t, i) {
+    const bar = Math.floor(b / 4), f = b / 4 - bar, sway = Math.sin((b / 2) * Math.PI + i * 0.35);
+    P.roll += 0.13 * sway; P.twist += 0.22 * sway; P.hy += 0.3 * sway; P.by += 0.012 * Math.abs(sway);
+    setArms(P, sway > 0 ? 'arab' : 'upR', 0.8);
+    if (bar % 4 === 3) Step.pirouette(P, Ease.inOut(f), 'first');
+  },
+  /* Chinese, 2/4: little quick steps with the arms held out in front, a deep bow at the end of every fourth bar */
+  tea(P, b, t, i) {
+    const bar = Math.floor(b / 2), f = b / 2 - bar;
+    Step.bourree(P, t + i * 0.3, 'first');
+    P.hz += 0.1 * Math.sin(b * Math.PI + i); P.by += 0.01 * Math.sin(b * TAU);
+    if (bar % 4 === 3) Step.reverence(P, Math.sin(f * Math.PI) * 0.9);
+  },
+  /* the grand ring: one waltz for everyone, a balancé every two beats and the arms floating */
+  ring(P, b, t, i) {
+    const n = Math.floor(b / 2), f = b / 2 - n;
+    Step.balance(P, f, n + (i % 2), 1);
+    if (Math.floor(b / 8) % 2 === 1 && f > 0.5) Step.pirouette(P, (f - 0.5) * 2, 'fifth');
+  },
+};
+function sleepPose(P, t, i) { Step.kneel(P, 0.9); setArms(P, 'low', 1); P.hx += 0.42; P.by += 0.006 * Math.sin(t * 1.7 + i); }
+function walkPose(P, t, i) { Step.bourree(P, t + i * 0.37, 'second'); P.lean += 0.07; }
+function waitPose(P, t, i) { setArms(P, 'second', 0.55); P.roll += 0.04 * Math.sin(t * 2.2 + i); P.by += 0.012 * Math.abs(Math.sin(t * 3 + i)); }
+
+/* ---- 34-palaceplay.js ---- */
+/* =====================================================================
+   34 · CHAPTER V — the Sugar Plum Palace: the dream gala
+   Act I, the Kingdom of Sweets, for now: the stage, the three troupes with their leaders, the baton, and the camera.
+   The game itself is in 35; this file builds what is on stage and puts it where the game says. Not on the chapter map yet.
+   ===================================================================== */
+const LEAD_ACT = { choco: ['castanet', 'stomp', 'spin'], coffee: ['veil', 'pose', 'spin'], tea: ['pose', 'curtsy', 'spin'] };
+const PALACE_WHERE = ['왼쪽', '오른쪽', '앞쪽'];   // where each nation's pad is, seen from the audience
+
+const Palace = {
+  W: null, fog: null, bg: null, loading: null, crowds: {}, leaders: {}, blobs: {}, count: {}, beacons: null, beaconPos: null, batonG: null, batonRing: null, batonStar: null,
+  t: 0, view: null, saved: null, showing: false, vt: 0, lastResult: null, leadBar: [-1, -1, -1], ringLead: false,
+  _P: null, _obj: '',
+
+  /* camera framings (position, target) */
+  VIEWS: {
+    show: [[0, 15.5, 21.5], [0, 0.7, -1.6]],          // the game, landscape
+    showPhone: [[0, 22.5, 31], [0, 0.5, -2.6]],      // the game, portrait
+    wide: [[0, 12.5, 33], [0, 3.4, -9]],
+    crane: [[0, 23, 17], [0, 0, 0.5]],
+    low: [[7.6, 2.1, 12.6], [0, 2.7, -1]],
+    top: [[0, 36, 3.5], [0, 0, 0]],
+  },
+
+  /* ---------- build the stage once, the first time the chapter opens ---------- */
+  ensure() {
+    if (this.W) return Promise.resolve();
+    if (!this.loading) this.loading = this.buildAll();
+    return this.loading;
+  },
+  async buildAll() {
+    const L = $('screenLoading');
+    L.style.transition = 'none'; L.style.opacity = '1'; L.hidden = false;
+    UI.setLoading(0.1, '설탕 궁전 앞에 하늘 무대를 띄우는 중…');
+    await nextFrame(); await nextFrame();
+    buildPalaceTextures(); buildPalaceMaterials();
+    UI.setLoading(0.4, '수정 기둥과 오로라를 세우는 중…');
+    await nextFrame();
+    const root = new THREE.Group(); root.name = 'palaceshow'; root.visible = false; scene.add(root);
+    const W5 = buildPalaceStage(root);
+    UI.setLoading(0.7, '세 나라 무용수들이 무대에 오르는 중…');
+    await nextFrame();
+    const T = PALACE_CFG.troupes, lite = Perf.quality === 'low' || DEVICE.lowMem, beacon = [];
+    for (const id of T.order) {
+      const U = T[id], n = lite ? U.lowN : U.n;
+      this.count[id] = n;
+      this.crowds[id] = makeCrowd(root, () => buildDoll(id, { lod: 1 }), U.n); this.crowds[id].setCount(n);
+      const d = buildSweetDancer(id); d.root.position.set(U.pad[0], 0, U.pad[1]); d.root.rotation.y = Math.atan2(-U.pad[0], -U.pad[1]); d.root.visible = false; root.add(d.root);
+      const b = makeBlob(0.4); b.position.set(U.pad[0], 0.03, U.pad[1]); b.visible = false; root.add(b);
+      this.leaders[id] = d; this.blobs[id] = b;
+      for (let i = 0; i < U.n; i++) beacon.push({ p: [0, -60, 0], c: U.glow, s: 1.15, tw: 0.5 });
+    }
+    this.beacons = makeGlowPoints(beacon, { cell: CELL.sparkle, boost: 1 }); this.beacons.visible = false; this.beaconPos = this.beacons.geometry.attributes.position; root.add(this.beacons);
+    /* the baton: a gold star floating over a ring on the floor that shows how far its light wakes. On the pale glass a light
+       ring vanishes, so the ring is solid gold on a dark plum halo, and the star has a dark rim and always faces the camera */
+    const K = PALACE_CFG.steer;
+    const flat = (geo, color, op, blend, y) => { const m = new THREE.Mesh(geo.rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: op, blending: blend, depthWrite: false, toneMapped: false })); m.position.y = y; return m; };
+    const starMesh = (r, color, z, ro) => {
+      const sh = new THREE.Shape();
+      for (let i = 0; i < 8; i++) { const a = (i / 8) * TAU, rr = i % 2 ? r * 0.4 : r, x = Math.sin(a) * rr, y = Math.cos(a) * rr; if (i) sh.lineTo(x, y); else sh.moveTo(x, y); }
+      sh.closePath();
+      const m = new THREE.Mesh(new THREE.ShapeGeometry(sh), new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide, transparent: true, depthWrite: false, toneMapped: false }));
+      m.position.z = z; m.renderOrder = ro; return m;   // after the glow points (18), so the star is not washed out
+    };
+    const bg = new THREE.Group(); bg.visible = false;
+    this.batonRing = flat(new THREE.RingGeometry(K.wakeR - 0.1, K.wakeR, 80), '#ffd35e', 0.92, THREE.NormalBlending, 0.07);
+    this.batonStar = new THREE.Group(); this.batonStar.add(starMesh(0.72, '#5a2370', -0.01, 22), starMesh(0.56, '#ffe38a', 0.01, 23), starMesh(0.2, '#ffffff', 0.02, 24));
+    bg.add(this.batonRing, flat(new THREE.RingGeometry(K.wakeR - 0.2, K.wakeR + 0.16, 80), '#3b1252', 0.26, THREE.NormalBlending, 0.064), flat(new THREE.CircleGeometry(K.wakeR, 56), '#fff3c4', 0.1, THREE.AdditiveBlending, 0.066),
+      makeGlowPoints([{ p: [0, 1.05, 0], c: '#fff3c4', s: 2.4, tw: 0.15 }], { cell: CELL.star, boost: 0.8 }), this.batonStar);
+    root.add(bg); this.batonG = bg;
+    this.fog = new THREE.Fog('#481a36', 70, 175);
+    this.bg = new THREE.Color('#0c0515');
+    this.W = W5;
+    root.updateMatrixWorld(true);
+  },
+
+  /* ---------- preview: the stage with the troupes asleep and nothing to play yet ---------- */
+  async preview(act = 0, view = 'show') {
+    RUN_ID++; Tasks.clear(); UI.closeDialog();
+    ['screenTitle', 'screenMap', 'screenClear', 'screenPause', 'screenRehearse', 'build', 'rhythm', 'recital'].forEach((id) => UI.hide(id));
+    UI.hide('hud'); UI.hide('controls'); UI.prompt(null);
+    Sound.stopMusic(0.6);
+    Toy.leave(); Snow.leave(); Sweet.leave();
+    G.mode = 'loading'; G.locked = true;
+    await this.ensure();
+    World.use(5);
+    this.hideCast(true);
+    G.mode = 'cutscene'; G.phase = 'preview';
+    this.t = 0; this.W.setPalette(act, act, 0);
+    PalaceShow.reset();
+    this.leadBar = [-1, -1, -1]; this.ringLead = false;
+    this.setVisible(true);
+    this.setView(view);
+    const L = $('screenLoading');
+    if (!L.hidden) { L.style.transition = 'opacity .8s ease'; L.style.opacity = '0'; setTimeout(() => { L.hidden = true; }, 820); }
+    UI.fade(0, 0.8);
+  },
+  setVisible(on) {
+    for (const id of PALACE_CFG.troupes.order) { this.crowds[id].group.visible = on; this.leaders[id].root.visible = on; this.blobs[id].visible = on; const U = PALACE_CFG.troupes[id]; this.leaders[id].root.position.set(U.pad[0], 0, U.pad[1]); this.leaders[id].root.rotation.y = Math.atan2(-U.pad[0], -U.pad[1]); }
+    this.beacons.visible = on; this.batonG.visible = on;
+  },
+  setView(name) { if (this.VIEWS[name]) this.view = name; },
+
+  /* the characters that live on the scene itself (not in a chapter world) are put away while the gala is on stage */
+  hideCast(hide) {
+    const list = [clara.root, blobs.clara, nut.root, blobs.nut, prince.root, fairyBig.root, marker];
+    if (hide) { if (!this.saved) this.saved = list.map((o) => !!(o && o.visible)); list.forEach((o) => { if (o) o.visible = false; }); }
+    else if (this.saved) { list.forEach((o, i) => { if (o) o.visible = this.saved[i]; }); this.saved = null; }
+  },
+  leave() {
+    if (!this.W) return;
+    if (this.showing) { Recital.stop(); UI.hide('recital'); this.showing = false; }
+    this.setVisible(false);
+    this.hideCast(false);
+    this.view = null;
+  },
+
+  /* ---------- the game (act I) ---------- */
+  async startShow() {
+    await this.preview(0, innerWidth < innerHeight ? 'showPhone' : 'show');
+    G.phase = 'show'; G.mode = 'play'; G.locked = true;
+    $('hud').classList.remove('cine'); UI.show('hud'); UI.hide('controls'); UI.prompt(null);
+    this.lastResult = null; this.showing = true;
+    UI.setChapterHud('제5장', '설탕 요정의 궁전', 'i-crown', 0); UI.setStars(0);
+    this._obj = ''; this.refreshObjective(0);
+    UI.show('recital');
+    const ok = await Recital.start(PalaceShow, { onEnd: (res) => Story.run(() => this.endShow(res)), cue: (kind, data) => this.cue(kind, data) });
+    if (ok) UI.setChapterHud('제5장', '설탕 요정의 궁전', 'i-crown', PalaceShow.total);
+  },
+  /* what the objective box says follows what is on the stage: who is in the line and where to take them, what is left to wake */
+  objective(sec) {
+    const S = PalaceShow, T = PALACE_CFG.troupes, ord = T.order, name = (ni) => T[ord[ni]].name;
+    if (sec >= 4) return '대원무 — 지휘봉으로 무용수들을 쓸어 종소리를 울려요!';
+    const dance = sec >= 1 ? `${name(sec - 1)} 춤 공연 중 — ` : '';
+    const inLine = ord.map((_, ni) => S.line.filter((q) => q.n === ni).length), lead = inLine.indexOf(Math.max(...inLine));
+    if (inLine[lead] > 0) return `${dance}${name(lead)} 무용수들을 ${PALACE_WHERE[lead]} 무대로 데려가요!`;
+    const todo = ord.findIndex((_, ni) => S.delivered[ni] < S.count[ni]);
+    if (todo < 0) return `${dance}모두 제자리에 섰어요!`;
+    return S.woken === 0 ? '화면을 문질러 지휘봉으로 무용수들을 깨워요 — 같은 나라 무대로 데려가요' : `${dance}${name(todo)} 무용수들을 지휘봉으로 깨워요`;
+  },
+  refreshObjective(sec = PalaceShow.sec) { const s = this.objective(sec); if (s !== this._obj) { this._obj = s; UI.setObjective(s); } },
+  /* the stage answers the game */
+  cue(kind, d) {
+    const T = PALACE_CFG.troupes, S = PalaceShow;
+    if (kind === 'wake') { const U = T[T.order[d.d.n]]; burst(d.d.x, 1.1, d.d.z, { n: 14, speed: 2.6, colors: [U.glow, '#ffffff', '#fff3c4'] }); this.refreshObjective(); }
+    else if (kind === 'deliver') {
+      const U = T[T.order[d.n]]; burst(d.d.x, 1.0, d.d.z, { n: 18, speed: 3.2, colors: [U.glow, '#ffffff', U.color] });
+      UI.setStars(S.delivered[0] + S.delivered[1] + S.delivered[2]);
+      if (d.count === S.count[d.n]) { const l = this.leaders[T.order[d.n]]; l.play('curtsy', 1.1); this.W.ripple.t = 0; }
+      this.refreshObjective();
+    } else if (kind === 'ring') {
+      const U = T[T.order[d.d.n]]; burst(d.d.x, 1.3, d.d.z, { n: 10, speed: 2.8, up: 1.5, colors: [U.glow, '#ffffff', '#fff3c4'] });
+    } else if (kind === 'section') {
+      this.refreshObjective(d.sec);
+      if (d.sec >= 1 && d.sec <= 3) { const U = T[T.order[d.sec - 1]]; this.W.ripple.t = 0; burst(U.pad[0], 1.4, U.pad[1], { n: 64, speed: 6, up: 2, colors: [U.glow, U.color, '#ffffff'] }); }
+      else if (d.sec === 4) { this.W.ripple.t = 0; burst(0, 2.2, 0, { n: 90, speed: 7, up: 3, colors: ['#fff3c4', '#ffa0ac', '#86f0e4', '#ffe8ae', '#ffffff'] }); Sound.sfxChime(); }
+    }
+  },
+  endShow(res) {
+    this.lastResult = res;
+    this.t = Recital.lastRel;   // the stage keeps dancing from where the music stopped
+    G.phase = 'showEnd'; G.mode = 'cutscene';
+  },
+  onPause(on) { if (!this.showing || !Recital.running) return; if (on) Recital.pause(); else Recital.resume(); },
+  helpText() { return '화면을 문질러(또는 마우스·방향키로) 별빛 지휘봉을 움직여요. 지휘봉이 닿는 무용수가 깨어나 줄을 서고, 자기 나라 무대 가까이 가면 줄에서 나와 자리를 잡아요. 마지막 대원무에서는 지휘봉으로 무용수들을 쓸어 종소리를 울려요.'; },
+
+  /* ---------- per frame ---------- */
+  update(dt) {
+    if (!this.W) return;
+    this.t += dt;
+    if (this.showing) Recital.update(dt);
+    const S = PalaceShow, live = this.showing && Recital.game === S && (Recital.running || Recital.paused), spb = 60 / PALACE_CFG.bpm;
+    const rel = live ? Recital.lastRel : this.t; this.vt = rel;
+    this.W.update(dt, this.t, rel / spb, live ? S.meterAt(rel) : 4);
+    this.frame(dt, rel, live);
+    this.camera(rel, live, dt);
+  },
+  camera(rel, live, dt = 0.016) {
+    const v = this.VIEWS[this.view]; if (!v) return;
+    const S = PalaceShow, T = PALACE_CFG.troupes, spb = 60 / PALACE_CFG.bpm, pos = v[0].slice(), tgt = v[1].slice();
+    pos[0] += Math.sin(this.t * 0.3) * 0.3;
+    /* while a nation dances the camera leans a little towards its pad (not enough to lose the rest of the stage), then eases back */
+    const F = this._focus || (this._focus = { x: 0, z: 0, k: 0 }), sec = live && rel >= 0 ? S.secAt(rel) : 0, on = sec >= 1 && sec <= 3;
+    if (on) { const U = T[T.order[sec - 1]]; F.x = U.pad[0]; F.z = U.pad[1]; }
+    F.k += ((on ? 1 : 0) - F.k) * (1 - Math.exp(-1.6 * dt));
+    const lean = this.view === 'showPhone' ? 0 : 1;   // a portrait screen has no room at the sides to lean
+    tgt[0] += F.x * 0.2 * F.k * lean; tgt[2] += F.z * 0.2 * F.k * lean; pos[0] += F.x * 0.1 * F.k * lean;
+    if (live && S.sec === 4) {   // the last section: the camera circles the ring and rises
+      const k = smoothstep(0, 1, clamp((rel - S.ringT0) / (8 * spb), 0, 1)), a = 0.55 * k, c = Math.cos(a), s = Math.sin(a);
+      const x = pos[0], z = pos[2]; pos[0] = x * c + z * s; pos[2] = -x * s + z * c; pos[1] += 3.5 * k;
+    }
+    Cam.set(pos, tgt);
+  },
+  /* the poses, the instanced dancers, the leaders, the pads, the baton */
+  frame(dt, rel, live) {
+    const S = PalaceShow, T = PALACE_CFG.troupes, spb = 60 / PALACE_CFG.bpm, t = this.t, sec = live ? (rel < 0 ? 0 : S.secAt(rel)) : -1;
+    const P = this._P || (this._P = newPose({}));
+    T.order.forEach((id, ni) => {   // pads: the nation whose dance is on glows most
+      const k = !live ? 0.8 : sec === 0 ? 0.8 : sec === 4 ? 1.3 : sec === ni + 1 ? 1.6 : 0.5;
+      this.W.setPadGlow(id, k);
+    });
+    for (const d of S.D) {
+      const id = T.order[d.n], C = this.crowds[id];
+      newPose(P);
+      if (d.st === 0) sleepPose(P, t, d.i);
+      else if (d.st === 1 || d.st === 2) { if (d.sp > 0.8) walkPose(P, t, d.i); else waitPose(P, t, d.i); }
+      else if (d.st === 3) { if (live && sec > d.n && sec < 4) NATION_STEP[id](P, (rel - S.starts[d.n + 1]) / spb, t, d.i); else waitPose(P, t, d.i); }
+      else NATION_STEP.ring(P, (rel - S.ringT0) / spb, t, d.rs);
+      let lift = 0;
+      if (d.st === 4) { const hk = (rel - d.hop) / 0.5; if (hk >= 0 && hk < 1) { const s = Math.sin(hk * Math.PI); lift = s * 0.5; setArms(P, 'fifth', s); P.by += 0.1 * s; } }   // the baton has rung her: a leap with her arms up
+      C.pose(P, t); C.write(d.i, d.x, lift, d.z, d.yaw + P.spin, 1);
+      const bi = d.n * 10 + d.i;
+      this.beaconPos.array[bi * 3] = d.x; this.beaconPos.array[bi * 3 + 1] = d.st === 0 ? 2.0 + 0.12 * Math.sin(t * 2.4 + d.g) : -60; this.beaconPos.array[bi * 3 + 2] = d.z;
+    }
+    this.beaconPos.needsUpdate = true;
+    for (const id of T.order) this.crowds[id].flush();
+    /* the leaders: they dance their nation's dance in its section, and in the last one gather on the dais */
+    T.order.forEach((id, ni) => {
+      const l = this.leaders[id], U = T[id], meter = PALACE_CFG.act1.sections[ni + 1].meter;
+      l.update(dt, 0, true, 0); if (l.updateVeil) l.updateVeil(t);
+      if (live && sec === ni + 1) { const bar = Math.floor((rel - S.starts[ni + 1]) / (meter * spb)); if (bar !== this.leadBar[ni]) { this.leadBar[ni] = bar; l.play(LEAD_ACT[id][bar % 3], meter * spb * 0.9); } }
+      if (live && sec === 4) {
+        if (!this.ringLead) { l.play('spin', 2.2); }
+        const a = (ni / 3) * TAU + (rel - S.ringT0) * 0.25, f = 1 - Math.exp(-2.2 * dt);
+        l.root.position.x += (Math.cos(a) * 1.15 - l.root.position.x) * f; l.root.position.z += (Math.sin(a) * 1.15 - l.root.position.z) * f; l.root.position.y += (this.W.daisTop - l.root.position.y) * f;
+        l.root.rotation.y = lerpAng(l.root.rotation.y, Math.atan2(Math.cos(a), Math.sin(a)), f);
+      }
+      this.blobs[id].position.set(l.root.position.x, 0.03 + l.root.position.y, l.root.position.z);
+    });
+    if (live && sec === 4) this.ringLead = true;
+    /* the baton: where it is, a pulse, and a trail of sparks while it moves */
+    const B = S.baton, show = this.showing && !S.done;
+    this.batonG.visible = show;
+    if (show) {
+      this.batonG.position.set(B.x, 0, B.z);
+      this.batonRing.material.opacity = 0.8 + 0.12 * Math.sin(t * 5); this.batonRing.scale.setScalar(1 + 0.04 * Math.sin(t * 7));
+      this.batonStar.position.y = 1.05 + 0.09 * Math.sin(t * 4); this.batonStar.quaternion.copy(camera.quaternion); this.batonStar.rotateZ(Math.sin(t * 1.6) * 0.35);
+      if (B.v > 1 && Math.random() < dt * 45) FX.add.spawn({ x: B.x + rnd(-0.3, 0.3), y: 0.5, z: B.z + rnd(-0.3, 0.3), vx: rnd(-0.5, 0.5), vy: rnd(0.4, 1.1), vz: rnd(-0.5, 0.5), g: 0, drag: 1.4, life: rnd(0.5, 0.9), size: rnd(0.16, 0.3), size1: 0.02, color: pick(['#fff3c4', '#ffd98a', '#ffffff']), cell: CELL.sparkle, rot: rnd(0, TAU), vr: rnd(-4, 4), flicker: 0.6 });
+    }
+  },
+};
+
+/* ---- 35-palaceshow.js ---- */
+/* =====================================================================
+   35 · CHAPTER V GAME — act I, the Kingdom of Sweets: lead three troupes with the baton
+   You move a glowing baton over the glass stage. The sleeping dancers it passes wake and follow it in a line; when the
+   baton comes to a nation's pad, that nation's dancers leave the line and take their places, and when the music reaches
+   their dance they dance it. Runs on the shared recital stage (27): its audio clock, pause, count-in, pointer and keys.
+   ===================================================================== */
+const _psV = new THREE.Vector3(), _psD = new THREE.Vector3();
+const lerpAng = (a, b, k) => a + angleDiff(a, b) * k;
+const P5_START = { x: 0, z: 3.0 };   // where the baton starts: just in front of the dais
+
+/* ---------------- act I music: five sections, each in its own nation's voice ---------------- */
+const P5_CH = {
+  Am: ANDALUZ.Am, G: ANDALUZ.G, F: ANDALUZ.F, E: ANDALUZ.E,
+  D: ['D2', 'A2', 'D3', 'F#3', 'A3'], Em: ['E2', 'B2', 'E3', 'G3', 'B3'], C: ['C3', 'G3', 'C4', 'E4', 'G4'],
+};
+const P5_INTRO = { ch: ['Am', 'Am', 'G', 'G', 'Am', 'Am', 'F', 'E'], mel: 'A5:1 C6:1 E6:2 | D6:1 C6:1 A5:2 | G5:1 B5:1 D6:2 | E6:2 A5:2 | C6:1 E6:1 A6:2 | G6:1 E6:1 C6:2 | D6:1 E6:1 F6:1 D6:1 | E6:4' };
+const P5_SPAN = { ch: ['Am', 'Am', 'G', 'G', 'F', 'F', 'E', 'E', 'Am', 'E', 'Am'], mel: 'E5:1 A5:1 C6:1 | B5:2 A5:1 | G5:1 B5:1 D6:1 | C6:1.5 B5:0.5 G5:1 | A5:1 C6:1 F6:1 | E6:2 C6:1 | B5:1 G#5:1 E5:1 | G#5:1 B5:1 E6:1 | C6:1 B5:0.5 A5:0.5 E5:1 | D6:1 B5:1 G#5:1 | A5:3' };
+const P5_ARAB = { mel: 'D5:1 Eb5:0.5 F#5:0.5 G5:2 | A5:1 G5:0.5 F#5:0.5 Eb5:2 | D5:1 Eb5:0.5 F#5:0.5 G5:1 A5:1 | Bb5:2 A5:1 G5:1 | A5:1 Bb5:0.5 A5:0.5 G5:1 F#5:1 | G5:1 A5:0.5 G5:0.5 F#5:1 Eb5:1 | D6:1 C6:0.5 Bb5:0.5 A5:2 | D5:4' };
+const P5_CHIN = { mel: 'D6:0.5 E6:0.5 G6:0.5 E6:0.5 | D6:0.5 B5:0.5 A5:1 | G5:0.5 A5:0.5 B5:0.5 D6:0.5 | E6:1 D6:1 | ' +
+  'E6:0.5 G6:0.5 A6:0.5 G6:0.5 | E6:0.5 D6:0.5 B5:1 | A5:0.5 B5:0.5 D6:0.5 E6:0.5 | G6:2 | ' +
+  'A6:1 G6:0.5 E6:0.5 | D6:0.5 E6:0.5 G6:1 | A6:0.5 G6:0.5 E6:0.5 D6:0.5 | B5:1 A5:1 | ' +
+  'D6:0.5 E6:0.5 G6:0.5 E6:0.5 | D6:0.5 B5:0.5 A5:1 | G5:1 B5:1 | G5:2' };
+const P5_RING = { ch: ['G', 'D', 'Em', 'C', 'G', 'D', 'C', 'G'], mel: 'B5:1 D6:1 G6:2 | A5:1 F#5:1 D6:2 | G5:1 B5:1 E6:2 | E6:1 G6:1 C7:2 | B5:1 D6:1 G6:2 | F#6:1 A6:1 D7:2 | E6:1 D6:1 C6:1 B5:1 | G5:4' };
+const P5_WAKE = ['A5', 'C6', 'D6', 'E6', 'G6', 'A6', 'C7', 'E7'];   // each dancer woken rings the next note of an A minor pentatonic
+const P5_RING_NOTES = ['G5', 'A5', 'B5', 'D6', 'E6', 'G6', 'A6', 'B6'];   // in the grand ring the baton plays a G major pentatonic, one note for each dancer it passes
+
+const PalaceShow = {
+  id: 'palace', bpm: PALACE_CFG.bpm, countIn: PALACE_CFG.act1.countIn,
+  D: [], count: [0, 0, 0], gidx: [0, 0, 0], total: 0, line: [], trail: [], baton: { x: 0, z: 3, tx: 0, tz: 3, v: 0 }, keys: {}, keyboard: false,
+  delivered: [0, 0, 0], padCount: [0, 0, 0], pres: [0, 0, 0], sec: 0, starts: [], endRel: 0, ringT0: 0, simRel: -9,
+  done: false, res: null, R: null, banner: { text: '', at: -9 }, woken: 0, firstWake: -1, rung: 0,
+
+  /* ---------- the stage, laid out the same way every time: each nation's dancers asleep round their own home ---------- */
+  layout() {
+    const T = PALACE_CFG.troupes, rnd = mulberry32(T.seed), D = [];
+    this.count = T.order.map((id) => Palace.count[id] || T[id].n);
+    this.gidx = this.count.map((_, k) => this.count.slice(0, k).reduce((a, b) => a + b, 0));
+    this.total = this.count.reduce((a, b) => a + b, 0);
+    T.order.forEach((id, ni) => {
+      const U = T[id], pts = [];
+      for (let tries = 0; pts.length < this.count[ni] && tries < 6000; tries++) {
+        const a = rnd() * TAU, r = Math.sqrt(rnd()) * T.homeR, x = U.home[0] + Math.cos(a) * r, z = U.home[1] + Math.sin(a) * r;
+        if (pts.some((p) => Math.hypot(p[0] - x, p[1] - z) < T.spacing)) continue;
+        if (Math.hypot(x, z) < PALACE_CFG.stage.dais + 1 || T.order.some((o) => Math.hypot(x - T[o].pad[0], z - T[o].pad[1]) < T.padR + 0.3)) continue;
+        pts.push([x, z]);
+      }
+      pts.forEach((p, i) => D.push({ n: ni, i, g: this.gidx[ni] + i, rs: 0, x: p[0], z: p[1], yaw: rnd() * TAU, st: 0, sp: 0, tx: 0, tz: 0, slot: -1, woke: -9, hop: -9 }));
+    });
+    this.D = D; this.count = T.order.map((_, ni) => D.filter((d) => d.n === ni).length);
+    this.total = D.length;
+    /* the grand ring takes them in turns, one of each nation, so the neighbours on it are always from different nations */
+    let k = 0; for (let i = 0; i < Math.max(...this.count); i++) for (let ni = 0; ni < T.order.length; ni++) { const d = D.find((q) => q.n === ni && q.i === i); if (d) d.rs = k++; }
+  },
+  /* everything back to the start: dancers asleep, the baton in front of the dais, nothing delivered */
+  reset() {
+    this.layout();
+    this.line = []; this.baton = { x: P5_START.x, z: P5_START.z, tx: P5_START.x, tz: P5_START.z, v: 0 }; this.trail = [{ x: P5_START.x, z: P5_START.z, s: 0 }];
+    this.delivered = [0, 0, 0]; this.padCount = [0, 0, 0]; this.pres = [0, 0, 0]; this.sec = 0; this.woken = 0; this.firstWake = -1; this.rung = 0;
+    this.done = false; this.res = null; this.keys = {}; this.banner = { text: '', at: -9 }; this.simRel = -9; this.lastRel = null;
+  },
+  prepare(R) {
+    const A = PALACE_CFG.act1, spb = R.spb;
+    this.R = R; this.reset();
+    this.starts = []; let b = 0;
+    A.sections.forEach((s) => { this.starts.push(b * spb); b += s.beats; });
+    this.endRel = b * spb + 1.4; this.ringT0 = this.starts[4];
+    this.banner = { text: `1막 · ${PALACE_CFG.acts[0].title}`, at: -this.countIn * spb };
+  },
+  secAt(rel) { let k = 0; for (let j = 0; j < this.starts.length; j++) if (rel >= this.starts[j]) k = j; return k; },
+  meterAt(rel) { return PALACE_CFG.act1.sections[this.secAt(rel)].meter; },
+
+  /* ---------- the music ---------- */
+  score(R) {
+    const spb = R.spb, S = PALACE_CFG.act1.sections, st = this.starts.length ? this.starts : S.reduce((a, s, k) => { a.push((k ? a[k - 1] + S[k - 1].beats * spb : 0)); return a; }, []);
+    const ev = R.countInEvents(this.countIn), notesOf = (ch) => P5_CH[ch];
+    const strum = (t, ch, vol, slice = 0, dur = 0.9) => ev.push({ t, kind: 'strum', notes: notesOf(ch).slice(slice), vol, spread: 0.014, dur });
+    const bass = (t, ch, dur, vol = 0.2) => ev.push({ t, kind: 'pluck', f: noteFreq(notesOf(ch)[0]), dur, vol });
+    const padOf = (t, ch, dur, vol = 0.03) => ev.push({ t, kind: 'pad', fs: notesOf(ch).slice(1, 4).map(noteFreq), dur, vol });
+
+    /* I · the intro: bells over a slow pad, an A minor waltz-less pulse */
+    { const t0 = st[0], bar = 4 * spb;
+      P5_INTRO.ch.forEach((ch, b) => { const t = t0 + b * bar; padOf(t, ch, bar * 1.02); bass(t, ch, bar * 0.8, 0.16); ev.push({ t: t + spb, kind: 'tambo', vol: 0.045 }, { t: t + 3 * spb, kind: 'tambo', vol: 0.045 }); });
+      ev.push(...R.melody(P5_INTRO.mel, t0, 'bell', 0.1, { bright: 1.2, legato: 0.95 }));
+      ev.push({ t: t0 + 7 * bar, kind: 'sparkle' }); }
+    /* II · the Spanish dance, 3/4: guitar and castanets, the stamp on every downbeat */
+    { const t0 = st[1], bar = 3 * spb;
+      P5_SPAN.ch.forEach((ch, b) => {
+        const t = t0 + b * bar;
+        strum(t, ch, 0.115); strum(t + spb, ch, 0.068, 2, 0.45); strum(t + 2 * spb, ch, 0.068, 2, 0.45); bass(t, ch, bar * 0.9);
+        ev.push({ t, kind: 'stomp', vol: 0.2 }, { t: t + spb, kind: 'castanet', vol: 0.15 }, { t: t + 2 * spb, kind: 'castanet', vol: 0.15 }, { t: t + 2.5 * spb, kind: 'castanet', vol: 0.09 });
+      });
+      ev.push(...R.melody(P5_SPAN.mel, t0, 'guit', 0.09, { legato: 1.3 })); }
+    /* III · the Arabian dance, 4/4: a drone, the doumbek and a reed */
+    { const t0 = st[2], bar = 4 * spb;
+      for (let b = 0; b < 8; b++) {
+        const t = t0 + b * bar;
+        ev.push({ t, kind: 'pad', fs: [noteFreq('D3'), noteFreq('A3')], dur: bar * 1.02, vol: 0.026 }, { t, kind: 'zill', vol: 0.05 }, { t, kind: 'pluck', f: noteFreq('D2'), dur: bar * 0.8, vol: 0.14 });
+        ev.push({ t, kind: 'dum', vol: 0.2 }, { t: t + spb, kind: 'tek', vol: 0.09 }, { t: t + 1.5 * spb, kind: 'tek', vol: 0.06 }, { t: t + 2 * spb, kind: 'dum', vol: 0.16 }, { t: t + 3 * spb, kind: 'tek', vol: 0.1 }, { t: t + 3.5 * spb, kind: 'tek', vol: 0.06 });
+      }
+      ev.push(...R.melody(P5_ARAB.mel, t0, 'reed', 0.07, { legato: 0.98 })); }
+    /* IV · the Chinese dance, 2/4: a flute over plucked fifths and wood blocks */
+    { const t0 = st[3], bar = 2 * spb;
+      for (let b = 0; b < 16; b++) {
+        const t = t0 + b * bar, [x, y] = TEA_BASS[b % TEA_BASS.length];
+        ev.push({ t, kind: 'pluck', f: noteFreq(x), dur: spb * 0.7, vol: 0.2 }, { t: t + spb, kind: 'pluck', f: noteFreq(y), dur: spb * 0.6, vol: 0.15 });
+        ev.push({ t: t + spb * 0.5, kind: 'wood', vol: 0.05, hi: true }, { t: t + spb * 1.5, kind: 'wood', vol: 0.05, hi: true });
+        if (b % 4 === 0) ev.push({ t, kind: 'bell', f: noteFreq('G6'), dur: 1.1, vol: 0.035 });
+      }
+      ev.push(...R.melody(P5_CHIN.mel, t0, 'flute', 0.075, { legato: 0.82 })); }
+    /* V · the grand ring: everyone at once in G, bells on top */
+    { const t0 = st[4], bar = 4 * spb;
+      P5_RING.ch.forEach((ch, b) => {
+        const t = t0 + b * bar;
+        padOf(t, ch, bar * 1.02, 0.034); bass(t, ch, bar * 0.9, 0.22);
+        strum(t, ch, 0.1); strum(t + 2 * spb, ch, 0.07, 2, 0.45);
+        ev.push({ t, kind: 'dum', vol: 0.16 }, { t: t + 2 * spb, kind: 'dum', vol: 0.13 }, { t: t + spb, kind: 'castanet', vol: 0.11 }, { t: t + 3 * spb, kind: 'castanet', vol: 0.11 });
+        ev.push({ t: t + 0.5 * spb, kind: 'wood', vol: 0.04, hi: true }, { t: t + 2.5 * spb, kind: 'wood', vol: 0.04, hi: true }, { t: t + spb, kind: 'tek', vol: 0.07 }, { t: t + 3 * spb, kind: 'tek', vol: 0.07 });
+        if (b % 2 === 0) ev.push({ t, kind: 'zill', vol: 0.05 });
+      });
+      ev.push(...R.melody(P5_RING.mel, t0, 'bell', 0.1, { bright: 1.25, legato: 0.95 }));
+      ev.push(...R.melody('G5:1 B5:1 D6:1 G6:1 | B5:1 D6:1 G6:1 B6:1', t0 + 6 * bar, 'flute', 0.05, { legato: 0.9 }));   // the flute rises with the last bars
+      const tE = t0 + 8 * bar;
+      ['G4', 'B4', 'D5', 'G5', 'B5', 'D6', 'G6'].forEach((nn, k) => ev.push({ t: tE + k * 0.07, kind: 'bell', f: noteFreq(nn), dur: 2.6, vol: 0.08, bright: 1.3 }));
+      strum(tE, 'G', 0.14, 0, 1.6); for (let i = 0; i < 9; i++) ev.push({ t: tE + i * 0.06, kind: 'castanet', vol: 0.1 + i * 0.01 });
+      ev.push({ t: tE, kind: 'stomp', vol: 0.3 }, { t: tE, kind: 'zill', vol: 0.07 }, { t: tE, kind: 'sparkle' }); }
+    return ev;
+  },
+
+  /* ---------- the baton and the dancers: one step of the game ---------- */
+  setTarget(x, z) {
+    const R0 = PALACE_CFG.stage.radius - 1.4, r = Math.hypot(x, z), k = r > R0 ? R0 / r : 1;
+    this.baton.tx = x * k; this.baton.tz = z * k;
+  },
+  /* the point of the glass floor under a pixel of the screen */
+  floorAt(R, sx, sy, out) {
+    _psV.set((sx / R.W) * 2 - 1, -(sy / R.H) * 2 + 1, 0.5).unproject(camera);
+    _psD.copy(_psV).sub(camera.position).normalize();
+    if (Math.abs(_psD.y) < 1e-4) return false;
+    const t = (0.04 - camera.position.y) / _psD.y; if (t <= 0) return false;
+    out.x = camera.position.x + _psD.x * t; out.z = camera.position.z + _psD.z * t; return true;
+  },
+  chime(k, vol = 0.06) {
+    const R = this.R, ctx = Sound.ctx; if (!ctx || !R || !R.bus || !R.running) return;
+    Sound.bell(ctx.currentTime, noteFreq(P5_WAKE[k % P5_WAKE.length]), 0.9, vol, R.bus, 1.8);
+  },
+  ringNote(k, vol = 0.07) {
+    const R = this.R, ctx = Sound.ctx; if (!ctx || !R || !R.bus || !R.running) return;
+    Sound.bell(ctx.currentTime, noteFreq(P5_RING_NOTES[k % P5_RING_NOTES.length]), 1.1, vol, R.bus, 1.6);
+  },
+  sim(dt, rel = this.simRel) {
+    const K = PALACE_CFG.steer, T = PALACE_CFG.troupes, B = this.baton, D = this.D, R = this.R, KS = this.keys, spb = 60 / PALACE_CFG.bpm;
+    this.simRel = rel;
+    const sec = rel < 0 ? 0 : this.secAt(rel);
+
+    /* the baton: straight to the finger, but no faster than its top speed; the arrow keys move it by hand */
+    const px = B.x, pz = B.z; let kx = (KS.right ? 1 : 0) - (KS.left ? 1 : 0), kz = (KS.down ? 1 : 0) - (KS.up ? 1 : 0);
+    if (kx || kz) { const l = Math.hypot(kx, kz); this.setTarget(B.x + (kx / l) * K.keySpeed * dt, B.z + (kz / l) * K.keySpeed * dt); B.x = B.tx; B.z = B.tz; }
+    else { const dx = B.tx - B.x, dz = B.tz - B.z, d = Math.hypot(dx, dz); if (d > 1e-4) { const s = Math.min(d, K.speed * dt); B.x += (dx / d) * s; B.z += (dz / d) * s; } }
+    B.v = dt > 0 ? Math.hypot(B.x - px, B.z - pz) / dt : 0;
+
+    /* the trail the line follows: a point every 0.2 units */
+    const last = this.trail[this.trail.length - 1], dd = Math.hypot(B.x - last.x, B.z - last.z);
+    if (dd >= 0.2) this.trail.push({ x: B.x, z: B.z, s: last.s + dd });
+    const tail = this.trail[this.trail.length - 1], sHead = tail.s + Math.hypot(B.x - tail.x, B.z - tail.z);
+    const keep = (this.line.length + 4) * K.gap + 2;
+    while (this.trail.length > 2 && sHead - this.trail[1].s > keep) this.trail.shift();
+
+    /* the grand ring: everyone, wherever they are, runs to a place on it */
+    if (sec === 4 && this.sec !== 4) { for (const d of D) { if (d.st === 2) { this.delivered[d.n]++; } d.st = 4; } this.line = []; }
+
+    /* wake: the sleeping dancers the baton passes */
+    if (sec < 4) for (const d of D) {
+      if (d.st !== 0 || Math.hypot(d.x - B.x, d.z - B.z) >= K.wakeR) continue;
+      d.st = 1; d.woke = rel; this.line.push(d); this.woken++; if (this.firstWake < 0) this.firstWake = rel;
+      this.chime(this.line.length - 1); if (R) R.emit('wake', { d, k: this.line.length });
+    }
+
+    /* the grand ring is an instrument: the baton passing a dancer sets her leaping and rings her note */
+    if (sec === 4) for (const d of D) {
+      if (d.st !== 4 || rel - d.hop < K.playGap || Math.hypot(d.x - B.x, d.z - B.z) >= K.playR) continue;
+      d.hop = rel; this.rung++; this.ringNote(d.rs); if (R) R.emit('ring', { d, k: this.rung });
+    }
+
+    /* the line: each dancer keeps her place a set distance back along the trail */
+    if (this.line.length) {
+      const pts = this.trail, Ls = pts.length - 1, head = { x: B.x, z: B.z, s: sHead }, f = 1 - Math.exp(-K.follow * dt);
+      let j = Ls;
+      for (let k = 0; k < this.line.length; k++) {
+        const s = sHead - (k + 1) * K.gap;
+        while (j > 0 && pts[j].s > s) j--;
+        const a = pts[j], b = j < Ls ? pts[j + 1] : head, den = b.s - a.s, u = den > 1e-6 ? clamp((s - a.s) / den, 0, 1) : 0;
+        const d = this.line[k], nx = d.x + (a.x + (b.x - a.x) * u - d.x) * f, nz = d.z + (a.z + (b.z - a.z) * u - d.z) * f, mx = nx - d.x, mz = nz - d.z;
+        d.sp = dt > 0 ? Math.hypot(mx, mz) / dt : 0;
+        if (d.sp > 0.6) d.yaw = lerpAng(d.yaw, Math.atan2(mx, mz), 1 - Math.exp(-12 * dt));
+        d.x = nx; d.z = nz;
+      }
+    }
+
+    /* the pads: the baton close to a pad sends that nation's dancers in from the line, one place each round the pad */
+    if (sec < 4) T.order.forEach((id, ni) => {
+      const U = T[id];
+      if (Math.hypot(B.x - U.pad[0], B.z - U.pad[1]) >= K.padLead || !this.line.some((d) => d.n === ni)) return;
+      const rest = [];
+      for (const d of this.line) {
+        if (d.n !== ni) { rest.push(d); continue; }
+        const slot = this.padCount[ni]++, ang = Math.PI / 2 + slot * (TAU / this.count[ni]);
+        d.st = 2; d.slot = slot; d.tx = U.pad[0] + Math.cos(ang) * T.ringR; d.tz = U.pad[1] + Math.sin(ang) * T.ringR;
+      }
+      this.line = rest;
+    });
+
+    /* arriving dancers walk to their places; the others on the ring or the pad keep still */
+    for (const d of D) {
+      if (d.st === 2) {
+        const dx = d.tx - d.x, dz = d.tz - d.z, dist = Math.hypot(dx, dz);
+        if (dist < 0.1) {
+          d.x = d.tx; d.z = d.tz; d.st = 3; d.sp = 0; const U = T[T.order[d.n]]; d.yaw = Math.atan2(U.pad[0] - d.x, U.pad[1] - d.z);
+          this.delivered[d.n]++; if (R) R.emit('deliver', { d, n: d.n, count: this.delivered[d.n] });
+        } else { const s = Math.min(dist, K.arrive * dt); d.x += (dx / dist) * s; d.z += (dz / dist) * s; d.sp = K.arrive; d.yaw = lerpAng(d.yaw, Math.atan2(dx, dz), 1 - Math.exp(-12 * dt)); }
+      } else if (d.st === 4) {
+        const turns = K.ringSpin * ((rel - this.ringT0) / (4 * spb)), ang = (d.rs / this.total) * TAU + turns * TAU, tx = Math.cos(ang) * K.ringR2, tz = Math.sin(ang) * K.ringR2;
+        const f = 1 - Math.exp(-2.2 * dt), mx = (tx - d.x) * f, mz = (tz - d.z) * f;
+        d.sp = dt > 0 ? Math.hypot(mx, mz) / dt : 0; d.x += mx; d.z += mz;
+        d.yaw = d.sp > 1.5 ? lerpAng(d.yaw, Math.atan2(mx, mz), 1 - Math.exp(-10 * dt)) : lerpAng(d.yaw, Math.atan2(-d.x, -d.z), 1 - Math.exp(-6 * dt));
+      }
+    }
+    this.sec = sec;
+  },
+
+  /* ---------- per frame, on the recital's clock ---------- */
+  update(R, rel, dt) {
+    const sec = rel < 0 ? 0 : this.secAt(rel), A = PALACE_CFG.act1, T = PALACE_CFG.troupes;
+    if (sec !== this.sec && rel >= 0) {
+      if (sec >= 1 && sec <= 3) {   // a dance begins: remember how many of its dancers were on their pad by then
+        const n = sec - 1; this.pres[n] = this.delivered[n] / this.count[n];
+        this.banner = { text: `${T[T.order[n]].name} 춤 · ${T[T.order[n]].who} 무용수들`, at: rel };
+      } else if (sec === 4) this.banner = { text: '대원무 · 모두 함께!', at: rel };
+      R.emit('section', { sec });
+    }
+    /* the game runs on the music's clock, in steps of at most 0.05 s, so a slow frame never lets the baton skip over a sleeper */
+    const step = this.lastRel === null || rel < this.lastRel ? dt : clamp(rel - this.lastRel, 0, 0.5);
+    this.lastRel = rel;
+    for (let left = step; left > 1e-6; left -= 0.05) this.sim(Math.min(left, 0.05), rel);
+    if (!this.done && rel >= this.endRel) { this.done = true; this.res = this.result(); R.finish(this.res); }
+  },
+  result() {
+    const st = PALACE_CFG.act1.stars, mean = (this.pres[0] + this.pres[1] + this.pres[2]) / 3, byEnd = (this.delivered[0] + this.delivered[1] + this.delivered[2]) / Math.max(1, this.total);
+    const acc = 0.65 * mean + 0.35 * byEnd;
+    return { delivered: this.delivered.slice(), count: this.count.slice(), total: this.total, pres: this.pres.map((v) => Math.round(v * 100)), acc: Math.round(acc * 100), stars: acc >= st[1] ? 3 : acc >= st[0] ? 2 : 1, woken: this.woken, rung: this.rung };
+  },
+
+  /* ---------- input ---------- */
+  pointer(R, type, x, y) {
+    if (type !== 'down' && type !== 'move') return;
+    this.keyboard = false;
+    const p = { x: 0, z: 0 }; if (this.floorAt(R, x, y, p)) this.setTarget(p.x, p.z);
+  },
+  key(R, code, rel, down) {
+    const KY = PALACE_CFG.act1.keys; let hit = false;
+    for (const dir in KY) if (KY[dir].includes(code)) { this.keys[dir] = down; hit = true; }
+    if (hit && down) this.keyboard = true;
+    return hit;
+  },
+  /* test autoplay: serve the nations in order, nearest sleeper first, then to the pad; A.idle waits, A.skip leaves nations alone */
+  auto(R, rel, A) {
+    if (rel < (A.idle || 0)) return;
+    const T = PALACE_CFG.troupes, B = this.baton;
+    if (this.secAt(rel) === 4) { const a = (rel - this.ringT0) * 1.1; this.setTarget(Math.cos(a) * PALACE_CFG.steer.ringR2, Math.sin(a) * PALACE_CFG.steer.ringR2); return; }   // the grand ring: sweep round it
+    for (let ni = 0; ni < 3; ni++) {
+      if (A.skip && A.skip.includes(ni)) continue;
+      let best = null, bd = 1e9;
+      for (const d of this.D) if (d.n === ni && d.st === 0) { const dd = Math.hypot(d.x - B.x, d.z - B.z); if (dd < bd) { bd = dd; best = d; } }
+      if (best) { this.setTarget(best.x, best.z); return; }
+      if (this.line.some((d) => d.n === ni)) { const U = T[T.order[ni]]; this.setTarget(U.pad[0], U.pad[1]); return; }
+    }
+    this.setTarget(P5_START.x, P5_START.z);
+  },
+
+  /* ---------- drawing on the full-screen canvas over the stage ---------- */
+  screenOf(R, x, y, z, out) { _psV.set(x, y, z).project(camera); out.x = (_psV.x * 0.5 + 0.5) * R.W; out.y = (-_psV.y * 0.5 + 0.5) * R.H; out.ok = _psV.z < 1; return out; },
+  draw(R, g) {
+    const rel = R.lastRel, T = PALACE_CFG.troupes, W = R.W, H = R.H, u = Math.max(14, Math.min(W, H) * 0.034), p = { x: 0, y: 0, ok: true };
+    const sec = rel < 0 ? 0 : this.secAt(rel);
+    /* a label above every pad: the nation, and how many of its dancers have taken their places; they fade as the grand ring begins */
+    const fade = this.done ? 0 : sec === 4 ? clamp(1 - (rel - this.ringT0) / 1.2, 0, 1) : 1;
+    if (fade > 0.01) T.order.forEach((id, ni) => {
+      const U = T[id]; this.screenOf(R, U.pad[0], 4.5, U.pad[1], p); if (!p.ok) return;
+      p.x = clamp(p.x, u * 3.1 + 4, W - u * 3.1 - 4);   // a label never runs off the side of a narrow screen
+      const got = this.delivered[ni], all = this.count[ni], on = sec === ni + 1;
+      g.save(); g.globalAlpha = 0.95 * fade;
+      g.fillStyle = 'rgba(16,10,40,0.62)'; rr(g, p.x - u * 3.1, p.y - u * 1.35, u * 6.2, u * 2.7, u * 0.8); g.fill();
+      g.lineWidth = on ? 3 : 1.6; g.strokeStyle = U.color; rr(g, p.x - u * 3.1, p.y - u * 1.35, u * 6.2, u * 2.7, u * 0.8); g.stroke();
+      g.restore();
+      R.text(g, U.name, p.x, p.y - u * 0.4, u * 0.95, '#fff6e6', { lw: 3, alpha: fade });
+      R.text(g, on ? '공연 중!' : `${got} / ${all}`, p.x, p.y + u * 0.68, u * 0.85, on ? '#ffe9a8' : got === all ? '#c8ffe4' : U.glow, { weight: 700, lw: 3, alpha: fade });
+    });
+    /* the banner of the moment, and the first hint */
+    const b = this.banner, k = rel - b.at;
+    if (k >= 0 && k < 3.2) R.text(g, b.text, W / 2, H * 0.2, Math.max(20, Math.min(W, H) * 0.058), '#fff6e6', { alpha: clamp(Math.min(k / 0.3, (3.2 - k) / 0.8), 0, 1) });
+    else if (rel < 0) R.text(g, b.text, W / 2, H * 0.2, Math.max(20, Math.min(W, H) * 0.058), '#fff6e6', { alpha: 1 });
+    if (sec === 4 && this.rung === 0 && rel - this.ringT0 > 1.5 && rel - this.ringT0 < 12) {
+      R.text(g, this.keyboard ? '방향키로 원 둘레를 돌아 보세요 — 종소리가 울려요' : '지휘봉으로 원 둘레를 쓸어 보세요 — 종소리가 울려요', W / 2, H * 0.84, Math.max(15, Math.min(W, H) * 0.034), '#ffffff', { alpha: clamp(Math.min((rel - this.ringT0 - 1.5) / 0.8, (12 - (rel - this.ringT0)) / 2), 0, 1) });
+    }
+    if (rel > -0.5 && this.woken === 0 && rel < 14) {
+      const msg = this.keyboard ? '방향키 · WASD로 별빛 지휘봉을 움직여요' : DEVICE.touch ? '화면을 문질러 별빛 지휘봉을 움직여요' : '마우스를 움직여 별빛 지휘봉을 따라가요 (방향키도 돼요)';
+      R.text(g, msg, W / 2, H * 0.84, Math.max(15, Math.min(W, H) * 0.034), '#ffffff', { alpha: clamp((14 - rel) / 3, 0, 1) });
+    }
+    if (this.done && this.res) this.card(R, g, this.res);
+  },
+  card(R, g, res) {
+    const W = R.W, H = R.H, cw = Math.min(380, W * 0.88), ch = 226, x0 = (W - cw) / 2, y0 = H * 0.26, T = PALACE_CFG.troupes;
+    g.save(); g.fillStyle = 'rgba(14,8,34,0.82)'; rr(g, x0, y0, cw, ch, 16); g.fill();
+    g.strokeStyle = 'rgba(241,217,152,0.8)'; g.lineWidth = 1.5; rr(g, x0 + 4, y0 + 4, cw - 8, ch - 8, 13); g.stroke(); g.restore();
+    R.text(g, `1막 끝 · ${PALACE_CFG.acts[0].title}`, W / 2, y0 + 34, 22, '#fff6e6');
+    R.text(g, '★'.repeat(res.stars) + '☆'.repeat(3 - res.stars), W / 2, y0 + 76, 34, '#ffd77a');
+    T.order.forEach((id, ni) => R.text(g, `${T[id].name} ${res.delivered[ni]} / ${res.count[ni]}`, x0 + cw * (0.18 + 0.32 * ni), y0 + 122, 15, T[id].glow, { weight: 700, lw: 3 }));
+    R.text(g, `제때 모인 정도 ${res.acc}%`, W / 2, y0 + 160, 17, '#f3eaff', { weight: 700 });
+    R.text(g, `깨운 무용수 ${res.woken}명`, W / 2, y0 + 192, 16, '#d6f0ff', { weight: 700 });
+  },
+};
+
 /* ---- 99-main.js ---- */
 /* =====================================================================
    11 · MAIN — boot, renderer, adaptive resolution, the frame loop
@@ -12229,6 +13282,7 @@ function gameUpdate(dt) {
     }
   }
   if (G.mode === 'play' || G.mode === 'cutscene') G.time += G.mode === 'play' ? dt : 0;
+  if (G.chapter === 5) { Palace.update(dt); return; }
   if (G.chapter === 3) { Snow.update(dt); return; }
   if (G.chapter === 4) {
     updatePlayer(dt);
@@ -12319,6 +13373,7 @@ async function boot(hot) {
   window.__nut = {
     G, player, Cam, Story, Input, UI, comp, K, Tasks, mice, soldiers, flags, Perf, DEBUG, applyMood, setQuality, spawnMouse, killMouse, hitKing, throwSlipper, Toy, Build, TG, World, Save, Sound, Snow, Rhythm, SNOW_CFG, Dance, DanceMusic, Corps, MediaStore, SNOW_DANCE, DANCE_PLAN, FORM,
     Sweet, Recital, SWEET_CFG, SWEET, REHEARSAL_GAMES, DANCE_ORDER, stageToWorld, MAT4,
+    Palace, PALACE_CFG, NATION_STEP, MAT5, PalaceShow,
     get W() { return W; }, get clara() { return clara; }, get nut() { return nut; }, get king() { return king; }, get prince() { return prince; },
     get fairyBig() { return fairyBig; }, get portal() { return portal; }, get magicSnow() { return magicSnow; }, get starSet() { return starSet; }, get renderer() { return renderer; }, get camera() { return camera; }, get scene() { return scene; },
   };

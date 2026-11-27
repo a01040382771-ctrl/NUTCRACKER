@@ -45,15 +45,16 @@ const fmtTime = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padSt
 const World = {
   W1: null,
   use(ch) {
-    const toy = ch === 2 && !!Toy.W, snow = ch === 3 && !!Snow.W, sweet = ch === 4 && !!Sweet.W;
-    G.chapter = sweet ? 4 : snow ? 3 : toy ? 2 : 1;
-    this.W1.root.visible = !toy && !snow && !sweet;
+    const toy = ch === 2 && !!Toy.W, snow = ch === 3 && !!Snow.W, sweet = ch === 4 && !!Sweet.W, palace = ch === 5 && !!Palace.W;
+    G.chapter = palace ? 5 : sweet ? 4 : snow ? 3 : toy ? 2 : 1;
+    this.W1.root.visible = !toy && !snow && !sweet && !palace;
     if (Toy.W) Toy.W.root.visible = toy;
     if (Snow.W) Snow.W.root.visible = snow;
     if (Sweet.W) Sweet.W.root.visible = sweet;
-    W = sweet ? Sweet.W : snow ? Snow.W : toy ? Toy.W : this.W1;
-    scene.fog = sweet ? Sweet.fog : snow ? Snow.fog : toy ? Toy.fog : null;
-    scene.background = sweet ? Sweet.bg : snow ? Snow.bg : toy ? Toy.bg : TEX.bg;
+    if (Palace.W) Palace.W.root.visible = palace;
+    W = palace ? Palace.W : sweet ? Sweet.W : snow ? Snow.W : toy ? Toy.W : this.W1;
+    scene.fog = palace ? Palace.fog : sweet ? Sweet.fog : snow ? Snow.fog : toy ? Toy.fog : null;
+    scene.background = palace ? Palace.bg : sweet ? Sweet.bg : snow ? Snow.bg : toy ? Toy.bg : TEX.bg;
     Cam.cfg = sweet ? CAM4 : toy ? CAM2 : CAM1;
     renderer.shadowMap.needsUpdate = true;
   },
@@ -167,7 +168,7 @@ const Story = {
   /* ---------- screens ---------- */
   toTitle(first) {
     RUN_ID++; Tasks.clear(); UI.closeDialog();
-    Toy.leave(); Snow.leave(); Sweet.leave(); World.use(1);
+    Toy.leave(); Snow.leave(); Sweet.leave(); Palace.leave(); World.use(1);
     this.resetWorld();
     G.mode = 'title'; G.locked = true;
     Cam.set([0, 6.6, 34], [0, 5.2, 0]); Cam.mode = 'title';
@@ -236,7 +237,8 @@ const Story = {
     this.prevMode = G.mode; G.mode = 'paused';
     if (G.chapter === 3) Snow.onPause(true);
     if (G.chapter === 4) Sweet.onPause(true);
-    UI.setHelp(G.chapter === 3 ? Snow.helpText() : G.chapter === 4 ? Sweet.helpText() : '');
+    if (G.chapter === 5) Palace.onPause(true);
+    UI.setHelp(G.chapter === 3 ? Snow.helpText() : G.chapter === 4 ? Sweet.helpText() : G.chapter === 5 ? Palace.helpText() : '');
     this.syncToggles(); UI.show('screenPause');
   },
   resume() {
@@ -244,6 +246,7 @@ const Story = {
     UI.hide('screenPause'); G.mode = this.prevMode || 'play';
     if (G.chapter === 3) Snow.onPause(false);
     if (G.chapter === 4) Sweet.onPause(false);
+    if (G.chapter === 5) Palace.onPause(false);
   },
   togglePause() { if (G.mode === 'paused') this.resume(); else this.pause(); },
 

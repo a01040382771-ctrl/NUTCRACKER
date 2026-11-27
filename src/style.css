@@ -179,6 +179,9 @@ kbd { font: 700 12px/1 'Cinzel', serif; padding: 4px 6px; border-radius: 4px; ba
   .rc-field { width: min(460px, 42vw); height: min(64vh, 470px); }
   #recital.coffee .rc-field, #recital.tea .rc-field { width: min(500px, 44vw); height: min(84vh, 640px); }
 }
+/* chapter V: the conducting game draws on the whole screen, over the stage */
+#recital.palace, #recital.palace .rc-field { padding: 0; width: 100%; height: 100%; }
+#recital.palace .rc-field canvas { cursor: crosshair; }
 .rc-info { margin: 14px 0 0; font-size: 15px; color: var(--ink2); line-height: 1.55; }
 .stats dd.long { font-size: 15px; letter-spacing: -0.01em; }
 

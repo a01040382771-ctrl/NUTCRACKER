@@ -303,6 +303,6 @@ const Recital = {
 
 /* leaving the page mid-rehearsal pauses the game, so the audio clock and the dance stop together */
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden || G.chapter !== 4) return;
+  if (!document.hidden || (G.chapter !== 4 && G.chapter !== 5)) return;
   if (Recital.running && G.mode === 'play') Story.pause();
 });

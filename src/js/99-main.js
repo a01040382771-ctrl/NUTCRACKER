@@ -143,6 +143,7 @@ function gameUpdate(dt) {
     }
   }
   if (G.mode === 'play' || G.mode === 'cutscene') G.time += G.mode === 'play' ? dt : 0;
+  if (G.chapter === 5) { Palace.update(dt); return; }
   if (G.chapter === 3) { Snow.update(dt); return; }
   if (G.chapter === 4) {
     updatePlayer(dt);
@@ -233,6 +234,7 @@ async function boot(hot) {
   window.__nut = {
     G, player, Cam, Story, Input, UI, comp, K, Tasks, mice, soldiers, flags, Perf, DEBUG, applyMood, setQuality, spawnMouse, killMouse, hitKing, throwSlipper, Toy, Build, TG, World, Save, Sound, Snow, Rhythm, SNOW_CFG, Dance, DanceMusic, Corps, MediaStore, SNOW_DANCE, DANCE_PLAN, FORM,
     Sweet, Recital, SWEET_CFG, SWEET, REHEARSAL_GAMES, DANCE_ORDER, stageToWorld, MAT4,
+    Palace, PALACE_CFG, NATION_STEP, MAT5, PalaceShow,
     get W() { return W; }, get clara() { return clara; }, get nut() { return nut; }, get king() { return king; }, get prince() { return prince; },
     get fairyBig() { return fairyBig; }, get portal() { return portal; }, get magicSnow() { return magicSnow; }, get starSet() { return starSet; }, get renderer() { return renderer; }, get camera() { return camera; }, get scene() { return scene; },
   };
