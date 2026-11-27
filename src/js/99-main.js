@@ -99,11 +99,11 @@ function snapshotRoom() {
     const cam = new THREE.PerspectiveCamera(38, 1.6, 0.1, 120);
     cam.position.set(0, 9.5, 21); cam.lookAt(0, 2.2, -2.5);
     const size = new THREE.Vector2(); renderer.getDrawingBufferSize(size);
-    const pr = renderer.getPixelRatio(), w = 640, h = 400;
+    const pr = renderer.getPixelRatio(), w = Math.min(640, Math.floor(size.x)), h = Math.round(w * 400 / 640);   // render no wider than the canvas
     stageSnow.visible = false;
     renderer.setViewport(0, 0, w / pr, h / pr); renderer.setScissor(0, 0, w / pr, h / pr); renderer.setScissorTest(true);
     renderer.render(scene, cam);
-    c2.drawImage(renderer.domElement, 0, size.y - h, w, h, 0, 0, w, h);
+    c2.drawImage(renderer.domElement, 0, size.y - h, w, h, 0, 0, 640, 400);
     renderer.setScissorTest(false); renderer.setViewport(0, 0, size.x / pr, size.y / pr);
     stageSnow.visible = true; W.theatre.set(prev);
     return cv.toDataURL('image/jpeg', 0.86);

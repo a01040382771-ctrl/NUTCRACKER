@@ -308,6 +308,32 @@ kbd { font: 700 12px/1 'Cinzel', serif; padding: 4px 6px; border-radius: 4px; ba
   .page.right { padding-top: 0; }
   .pg-art { aspect-ratio: 16 / 9; }
 }
+/* phones: the chapter map, with all five rows of the list, fits one screen without scrolling */
+@media (max-width: 600px) {
+  .page { padding: 16px 18px 14px; gap: 7px; }
+  .page h2 { font-size: 27px; }
+  .pg-en { font-size: 21px; }
+  .pg-art { aspect-ratio: 16 / 7; margin-top: 4px; }
+  .pg-desc { margin-top: 2px; font-size: 15px; line-height: 1.55; }
+  .pg-stats { font-size: 14px; }
+  .toc-head { font-size: 19px; }
+  .toc-head::after { margin-top: 3px; }
+  .toc { gap: 6px; margin: 4px 0 0; }
+  .toc-item { grid-template-columns: 38px 24px minmax(0, 1fr) auto; gap: 8px; padding: 6px 10px; }
+  .toc-ico { width: 38px; height: 38px; }
+  .toc-ico svg { width: 21px; height: 21px; }
+  .toc-name { font-size: 16px; }
+  .toc-no { font-size: 14px; }
+  .toc-state { font-size: 12.5px; }
+}
+/* shorter phones: a slimmer picture and tighter rows, so the whole list still shows */
+@media (max-width: 600px) and (max-height: 780px) {
+  .page { padding-top: 12px; padding-bottom: 10px; }
+  .pg-art { aspect-ratio: 16 / 5; }
+  .pg-desc { font-size: 14.5px; line-height: 1.5; }
+  .toc { gap: 5px; }
+  .toc-item { padding: 4px 10px; }
+}
 @media (max-width: 600px), (max-height: 520px) {
   .bd-row { flex-direction: column-reverse; align-items: center; gap: 10px; }
   .bd-piece { width: 78px; }
@@ -4770,6 +4796,10 @@ const Save = {
   },
   write() { try { localStorage.setItem(this.key, JSON.stringify(this.data)); } catch (e) { /* ignore */ } },
 };
+/* Every chapter can be entered by everyone (the saved progress still counts up as before, it just no longer locks the map).
+   Chapter V is still being made: its row opens as "곧 공개돼요" and can't be played yet. Set to false to bring the locks back. */
+const OPEN_ALL_CHAPTERS = true;
+const chapterOpen = (i) => OPEN_ALL_CHAPTERS || i < Save.data.unlocked;
 try { if (window.claude && window.claude.hot && window.claude.hot.snapshot) window.claude.hot.snapshot(() => ({ save: Save.data })); } catch (e) { /* not hosted */ }
 
 const STAR_DEFS = [
@@ -4829,13 +4859,13 @@ const Story = {
     on('btnMapBack', () => { Sound.sfxUI(); UI.hide('screenMap'); UI.show('screenTitle'); });
     on('btnPlayChapter', () => {
       if (this.mapSel === 0) { Sound.sfxUI(); this.startChapter(); }
-      else if (this.mapSel === 1 && Save.data.unlocked >= 2) { Sound.sfxUI(); Toy.start(); }
-      else if (this.mapSel === 2 && Save.data.unlocked >= 3) { Sound.sfxUI(); Snow.start(); }
-      else if (this.mapSel === 3 && Save.data.unlocked >= 4) { Sound.sfxUI(); Sweet.start(); }
+      else if (this.mapSel === 1 && chapterOpen(1)) { Sound.sfxUI(); Toy.start(); }
+      else if (this.mapSel === 2 && chapterOpen(2)) { Sound.sfxUI(); Snow.start(); }
+      else if (this.mapSel === 3 && chapterOpen(3)) { Sound.sfxUI(); Sweet.start(); }
     });
     on('btnContinue', () => {
-      if (this.mapSel === 1 && Save.data.unlocked >= 2 && Toy.checkpoint()) { Sound.sfxUI(); Toy.start(true); }
-      else if (this.mapSel === 3 && Save.data.unlocked >= 4 && Sweet.checkpoint()) { Sound.sfxUI(); Sweet.start(true); }
+      if (this.mapSel === 1 && chapterOpen(1) && Toy.checkpoint()) { Sound.sfxUI(); Toy.start(true); }
+      else if (this.mapSel === 3 && chapterOpen(3) && Sweet.checkpoint()) { Sound.sfxUI(); Sweet.start(true); }
     });
     on('btnPause', () => this.pause());
     on('btnResume', () => this.resume());
@@ -4937,7 +4967,7 @@ const Story = {
   renderMap() {
     const toc = $('toc'); toc.textContent = '';
     CHAPTERS.forEach((ch, i) => {
-      const unlocked = i < Save.data.unlocked, done = Save.data.done[ch.id];
+      const unlocked = chapterOpen(i), done = Save.data.done[ch.id];
       const li = document.createElement('li');
       const b = document.createElement('button');
       b.className = `toc-item${unlocked ? '' : ' locked'}${i === this.mapSel ? ' sel' : ''}`;
@@ -4946,7 +4976,7 @@ const Story = {
       b.addEventListener('click', () => { this.mapSel = i; Sound.sfxUI(); this.renderMap(); });
       li.appendChild(b); toc.appendChild(li);
     });
-    const sel = this.mapSel, ch = CHAPTERS[sel], unlocked = sel < Save.data.unlocked, done = Save.data.done[ch.id];
+    const sel = this.mapSel, ch = CHAPTERS[sel], unlocked = chapterOpen(sel), done = Save.data.done[ch.id];
     const playable = unlocked && sel <= 3;
     $('mapNo').textContent = `${ch.no} · Chapter ${ch.roman}`; $('mapTitle').textContent = ch.title; $('mapEn').textContent = ch.en; $('mapDesc').textContent = ch.desc;
     const img = $('mapImg'), shot = sel === 0 ? this.roomShot : sel === 1 ? Toy.shot : sel === 2 ? Snow.shot : sel === 3 ? Sweet.shot : '';
@@ -7305,10 +7335,10 @@ const Toy = {
       const cam = new THREE.PerspectiveCamera(38, 1.6, 0.1, 220);
       cam.position.set(10.5, 8.6, 16.5); cam.lookAt(0, 3.6, -4.8);
       const size = new THREE.Vector2(); renderer.getDrawingBufferSize(size);
-      const pr = renderer.getPixelRatio(), w = 640, h = 400;
+      const pr = renderer.getPixelRatio(), w = Math.min(640, Math.floor(size.x)), h = Math.round(w * 400 / 640);   // render no wider than the canvas
       renderer.setViewport(0, 0, w / pr, h / pr); renderer.setScissor(0, 0, w / pr, h / pr); renderer.setScissorTest(true);
       renderer.render(scene, cam);
-      c2.drawImage(renderer.domElement, 0, size.y - h, w, h, 0, 0, w, h);
+      c2.drawImage(renderer.domElement, 0, size.y - h, w, h, 0, 0, 640, 400);
       renderer.setScissorTest(false); renderer.setViewport(0, 0, size.x / pr, size.y / pr);
       return cv.toDataURL('image/jpeg', 0.86);
     } catch (e) { return ''; }
@@ -8765,11 +8795,11 @@ const Snow = {
       const cam = new THREE.PerspectiveCamera(40, 1.6, 0.1, 220), gp = this.toWorld(-12, 8.5, -20, _sa), gt = this.toWorld(0, 2.4, 4, _sb);
       cam.position.copy(gp); cam.lookAt(gt);
       const size = new THREE.Vector2(); renderer.getDrawingBufferSize(size);
-      const pr = renderer.getPixelRatio(), w = 640, h = 400;
+      const pr = renderer.getPixelRatio(), w = Math.min(640, Math.floor(size.x)), h = Math.round(w * 400 / 640);   // render no wider than the canvas
       camera.clearViewOffset();
       renderer.setViewport(0, 0, w / pr, h / pr); renderer.setScissor(0, 0, w / pr, h / pr); renderer.setScissorTest(true);
       renderer.render(scene, cam);
-      c2.drawImage(renderer.domElement, 0, size.y - h, w, h, 0, 0, w, h);
+      c2.drawImage(renderer.domElement, 0, size.y - h, w, h, 0, 0, 640, 400);
       renderer.setScissorTest(false); renderer.setViewport(0, 0, size.x / pr, size.y / pr);
       return cv.toDataURL('image/jpeg', 0.86);
     } catch (e) { return ''; }
@@ -11951,11 +11981,11 @@ const Sweet = {
       const cam = new THREE.PerspectiveCamera(40, 1.6, 0.1, 220);
       cam.position.set(11, 8.5, 15); cam.lookAt(0, 2.6, -8);
       const size = new THREE.Vector2(); renderer.getDrawingBufferSize(size);
-      const pr = renderer.getPixelRatio(), w = 640, h = 400;
+      const pr = renderer.getPixelRatio(), w = Math.min(640, Math.floor(size.x)), h = Math.round(w * 400 / 640);   // render no wider than the canvas
       camera.clearViewOffset();
       renderer.setViewport(0, 0, w / pr, h / pr); renderer.setScissor(0, 0, w / pr, h / pr); renderer.setScissorTest(true);
       renderer.render(scene, cam);
-      c2.drawImage(renderer.domElement, 0, size.y - h, w, h, 0, 0, w, h);
+      c2.drawImage(renderer.domElement, 0, size.y - h, w, h, 0, 0, 640, 400);
       renderer.setScissorTest(false); renderer.setViewport(0, 0, size.x / pr, size.y / pr);
       return cv.toDataURL('image/jpeg', 0.86);
     } catch (e) { return ''; }
@@ -12162,11 +12192,11 @@ function snapshotRoom() {
     const cam = new THREE.PerspectiveCamera(38, 1.6, 0.1, 120);
     cam.position.set(0, 9.5, 21); cam.lookAt(0, 2.2, -2.5);
     const size = new THREE.Vector2(); renderer.getDrawingBufferSize(size);
-    const pr = renderer.getPixelRatio(), w = 640, h = 400;
+    const pr = renderer.getPixelRatio(), w = Math.min(640, Math.floor(size.x)), h = Math.round(w * 400 / 640);   // render no wider than the canvas
     stageSnow.visible = false;
     renderer.setViewport(0, 0, w / pr, h / pr); renderer.setScissor(0, 0, w / pr, h / pr); renderer.setScissorTest(true);
     renderer.render(scene, cam);
-    c2.drawImage(renderer.domElement, 0, size.y - h, w, h, 0, 0, w, h);
+    c2.drawImage(renderer.domElement, 0, size.y - h, w, h, 0, 0, 640, 400);
     renderer.setScissorTest(false); renderer.setViewport(0, 0, size.x / pr, size.y / pr);
     stageSnow.visible = true; W.theatre.set(prev);
     return cv.toDataURL('image/jpeg', 0.86);

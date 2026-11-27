@@ -18,6 +18,10 @@ const Save = {
   },
   write() { try { localStorage.setItem(this.key, JSON.stringify(this.data)); } catch (e) { /* ignore */ } },
 };
+/* Every chapter can be entered by everyone (the saved progress still counts up as before, it just no longer locks the map).
+   Chapter V is still being made: its row opens as "곧 공개돼요" and can't be played yet. Set to false to bring the locks back. */
+const OPEN_ALL_CHAPTERS = true;
+const chapterOpen = (i) => OPEN_ALL_CHAPTERS || i < Save.data.unlocked;
 try { if (window.claude && window.claude.hot && window.claude.hot.snapshot) window.claude.hot.snapshot(() => ({ save: Save.data })); } catch (e) { /* not hosted */ }
 
 const STAR_DEFS = [
@@ -77,13 +81,13 @@ const Story = {
     on('btnMapBack', () => { Sound.sfxUI(); UI.hide('screenMap'); UI.show('screenTitle'); });
     on('btnPlayChapter', () => {
       if (this.mapSel === 0) { Sound.sfxUI(); this.startChapter(); }
-      else if (this.mapSel === 1 && Save.data.unlocked >= 2) { Sound.sfxUI(); Toy.start(); }
-      else if (this.mapSel === 2 && Save.data.unlocked >= 3) { Sound.sfxUI(); Snow.start(); }
-      else if (this.mapSel === 3 && Save.data.unlocked >= 4) { Sound.sfxUI(); Sweet.start(); }
+      else if (this.mapSel === 1 && chapterOpen(1)) { Sound.sfxUI(); Toy.start(); }
+      else if (this.mapSel === 2 && chapterOpen(2)) { Sound.sfxUI(); Snow.start(); }
+      else if (this.mapSel === 3 && chapterOpen(3)) { Sound.sfxUI(); Sweet.start(); }
     });
     on('btnContinue', () => {
-      if (this.mapSel === 1 && Save.data.unlocked >= 2 && Toy.checkpoint()) { Sound.sfxUI(); Toy.start(true); }
-      else if (this.mapSel === 3 && Save.data.unlocked >= 4 && Sweet.checkpoint()) { Sound.sfxUI(); Sweet.start(true); }
+      if (this.mapSel === 1 && chapterOpen(1) && Toy.checkpoint()) { Sound.sfxUI(); Toy.start(true); }
+      else if (this.mapSel === 3 && chapterOpen(3) && Sweet.checkpoint()) { Sound.sfxUI(); Sweet.start(true); }
     });
     on('btnPause', () => this.pause());
     on('btnResume', () => this.resume());
@@ -185,7 +189,7 @@ const Story = {
   renderMap() {
     const toc = $('toc'); toc.textContent = '';
     CHAPTERS.forEach((ch, i) => {
-      const unlocked = i < Save.data.unlocked, done = Save.data.done[ch.id];
+      const unlocked = chapterOpen(i), done = Save.data.done[ch.id];
       const li = document.createElement('li');
       const b = document.createElement('button');
       b.className = `toc-item${unlocked ? '' : ' locked'}${i === this.mapSel ? ' sel' : ''}`;
@@ -194,7 +198,7 @@ const Story = {
       b.addEventListener('click', () => { this.mapSel = i; Sound.sfxUI(); this.renderMap(); });
       li.appendChild(b); toc.appendChild(li);
     });
-    const sel = this.mapSel, ch = CHAPTERS[sel], unlocked = sel < Save.data.unlocked, done = Save.data.done[ch.id];
+    const sel = this.mapSel, ch = CHAPTERS[sel], unlocked = chapterOpen(sel), done = Save.data.done[ch.id];
     const playable = unlocked && sel <= 3;
     $('mapNo').textContent = `${ch.no} · Chapter ${ch.roman}`; $('mapTitle').textContent = ch.title; $('mapEn').textContent = ch.en; $('mapDesc').textContent = ch.desc;
     const img = $('mapImg'), shot = sel === 0 ? this.roomShot : sel === 1 ? Toy.shot : sel === 2 ? Snow.shot : sel === 3 ? Sweet.shot : '';

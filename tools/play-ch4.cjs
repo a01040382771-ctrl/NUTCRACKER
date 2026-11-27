@@ -8,11 +8,11 @@ const { open } = require('./harness.cjs');
   const ok = (name, cond, extra) => { if (!cond) fails++; console.log(cond ? 'PASS' : 'FAIL', name, extra === undefined ? '' : JSON.stringify(extra)); };
   const key = (k, code) => ev(([k, code]) => { window.dispatchEvent(new KeyboardEvent('keydown', { key: k, code, bubbles: true })); window.dispatchEvent(new KeyboardEvent('keyup', { key: k, code, bubbles: true })); }, [k, code]);
 
-  /* 1. the chapter map: chapter IV is listed, unlocked and playable; chapter V is still closed */
+  /* 1. the chapter map: chapter IV is listed, unlocked and playable; chapter V is listed as being prepared */
   await ev(() => { const n = window.__nut; n.Save.data.unlocked = 4; delete n.Save.data.ch4; n.Story.mapSel = 3; n.Story.openMap(); });
   await page.waitForTimeout(700);
   const map = await ev(() => ({ title: document.getElementById('mapTitle').textContent, stats: document.getElementById('mapStats').textContent, btn: document.getElementById('btnPlayChapter').textContent, disabled: document.getElementById('btnPlayChapter').disabled, veil: !document.getElementById('mapLock').hidden, toc: [...document.querySelectorAll('.toc-state')].map((e) => e.textContent) }));
-  ok('map: chapter IV is playable and lists its three rehearsals', map.title === '과자의 왕국' && !map.disabled && !map.veil && map.btn === '이야기 펼치기' && /리허설 3개/.test(map.stats) && map.toc[3] === '춤 리허설 3개' && map.toc[4] === '잠김', map);
+  ok('map: chapter IV is playable and lists its three rehearsals', map.title === '과자의 왕국' && !map.disabled && !map.veil && map.btn === '이야기 펼치기' && /리허설 3개/.test(map.stats) && map.toc[3] === '춤 리허설 3개' && map.toc[4] === '준비 중', map);
   await shot('map');
 
   /* 2. the intro, then walking in the avenue */

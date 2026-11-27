@@ -390,11 +390,11 @@ const Snow = {
       const cam = new THREE.PerspectiveCamera(40, 1.6, 0.1, 220), gp = this.toWorld(-12, 8.5, -20, _sa), gt = this.toWorld(0, 2.4, 4, _sb);
       cam.position.copy(gp); cam.lookAt(gt);
       const size = new THREE.Vector2(); renderer.getDrawingBufferSize(size);
-      const pr = renderer.getPixelRatio(), w = 640, h = 400;
+      const pr = renderer.getPixelRatio(), w = Math.min(640, Math.floor(size.x)), h = Math.round(w * 400 / 640);   // render no wider than the canvas
       camera.clearViewOffset();
       renderer.setViewport(0, 0, w / pr, h / pr); renderer.setScissor(0, 0, w / pr, h / pr); renderer.setScissorTest(true);
       renderer.render(scene, cam);
-      c2.drawImage(renderer.domElement, 0, size.y - h, w, h, 0, 0, w, h);
+      c2.drawImage(renderer.domElement, 0, size.y - h, w, h, 0, 0, 640, 400);
       renderer.setScissorTest(false); renderer.setViewport(0, 0, size.x / pr, size.y / pr);
       return cv.toDataURL('image/jpeg', 0.86);
     } catch (e) { return ''; }
